@@ -12,9 +12,15 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({
+  children,
+  overrideUser,
+}: {
+  children: ReactNode
+  overrideUser?: Usuario
+}) {
   return (
-    <AuthContext.Provider value={{ currentUser: MOCKED_CURRENT_USER }}>
+    <AuthContext.Provider value={{ currentUser: overrideUser ?? MOCKED_CURRENT_USER }}>
       {children}
     </AuthContext.Provider>
   )
