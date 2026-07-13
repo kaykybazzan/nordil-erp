@@ -24,7 +24,7 @@ export default function DashboardPage() {
     <>
       <AuthProvider overrideUser={demoUser}>
         <AppShell key={role} profile={PROFILES[role]} initialActiveKey="dashboard">
-          <DashboardScreen />
+          <DashboardScreen role={role} />
         </AppShell>
       </AuthProvider>
 
