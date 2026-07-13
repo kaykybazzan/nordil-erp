@@ -8,6 +8,9 @@ const STATES: { value: LoginState; label: string }[] = [
   { value: "loading", label: "Carregando" },
   { value: "error", label: "Credencial" },
   { value: "blocked", label: "Bloqueada" },
+  { value: "inactive", label: "Emp. inativa" },
+  { value: "rate_limited", label: "Rate limit" },
+  { value: "network_error", label: "Sem rede" },
   { value: "expired", label: "Expirada" },
 ]
 
@@ -15,7 +18,6 @@ export default function LoginPage() {
   const [state, setState] = useState<LoginState>("idle")
 
   function handleSubmit() {
-    // No real auth — simulate the loading state briefly for demonstration.
     setState("loading")
     setTimeout(() => setState("idle"), 1800)
   }
