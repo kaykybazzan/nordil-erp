@@ -9,6 +9,7 @@ import { MOCK_CLIENTES } from "@/lib/mock-clientes"
 import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
 import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
 import { useAuth } from "@/lib/auth-context"
+import { podeAcessarDevolucoes } from "@/lib/policies"
 import { StatusBadgePedido } from "@/components/pedidos/shared/status-badge"
 import { TimelineEventos } from "@/components/pedidos/detalhe/timeline-eventos"
 import { PainelRevisao } from "@/components/pedidos/detalhe/painel-revisao"
@@ -53,6 +54,7 @@ export function DetalhePedidoScreen({ pedidoId }: DetalhePedidoScreenProps) {
   const [pedido, setPedido] = useState<Pedido | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [devolucaoDrawerAberto, setDevolucaoDrawerAberto] = useState(false)
   const toastTimer = useRef<number | null>(null)
 
   function showToast(msg: string) {
@@ -159,6 +161,17 @@ export function DetalhePedidoScreen({ pedidoId }: DetalhePedidoScreenProps) {
       )}
       {pedido.status === "RESERVADO" && pedido.pendencia === "RUPTURA_ESTOQUE" && isSupervisor && (
         <PainelSupervisor pedido={pedido} onAutorizar={handleAutorizar} onBloquear={handleBloquear} />
+      )}
+
+      {/* Botão Solicitar devolução */}
+      {pedido.status === "ENTREGUE" && podeAcessarDevolucoes(currentUser) && (
+        <button
+          type="button"
+          onClick={() => setDevolucaoDrawerAberto(true)}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+        >
+          Solicitar devolução
+        </button>
       )}
 
       {/* Informações gerais */}
@@ -294,6 +307,22 @@ export function DetalhePedidoScreen({ pedidoId }: DetalhePedidoScreenProps) {
       {toast && (
         <div className="pointer-events-none fixed bottom-3 left-1/2 z-50 -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-sm text-background shadow-lg">
           {toast}
+        </div>
+      )}
+
+      {/* TODO: Drawer de solicitação de devolução (tarefa futura) */}
+      {devolucaoDrawerAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="rounded-xl bg-card p-6 shadow-lg">
+            <p className="text-sm text-muted-foreground">Drawer de solicitação de devolução - implementação futura</p>
+            <button
+              type="button"
+              onClick={() => setDevolucaoDrawerAberto(false)}
+              className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              Fechar
+            </button>
+          </div>
         </div>
       )}
     </div>

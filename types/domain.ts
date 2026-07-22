@@ -11,8 +11,9 @@ export interface Endereco {
 
 export interface Cliente {
   id: string
-  nome: string // nome ou razão social
-  documento: string // CPF ou CNPJ
+  empresaId: string
+  nome: string
+  documento: string
   status: "ativo" | "bloqueado"
   enderecos: Endereco[]
   dataCadastro: string
@@ -22,25 +23,18 @@ export type UnidadeMedida = "UN" | "M" | "KG" | "CX"
 
 export interface Produto {
   id: string
-  skuInterno: string // gerado pelo sistema, somente leitura após criação
+  empresaId: string
+  skuInterno: string
   referenciaComercial?: string
   codigoBarras?: string
   nome: string
   marca: string
   unidadeMedida: UnidadeMedida
-  permiteFracionado: boolean // default por unidade: UN/CX = false, M/KG = true
+  permiteFracionado: boolean
+  custo: number
   precoVenda: number
   status: "ativo" | "inativo"
-  // campos somente leitura, vêm do agregado Inventario, nunca editados aqui:
   estoqueAtual: number
-}
-
-export interface Inventario {
-  produtoId: string
-  estoqueFisico: number
-  reservado: number
-  estoqueMinimo: number
-  ultimaMovimentacao: string
 }
 
 export interface Fornecedor {
@@ -74,13 +68,16 @@ export interface Usuario {
   id: string
   nome: string
   email: string
+  senha: string
+  precisaTrocarSenha: boolean
+  cargo?: string
   empresaId: string
   role: PapelUsuario
   funcao: FuncaoUsuario
+  status: "ativo" | "inativo"
 }
 
-
-// ─── Pedido ──────────────────────────────────────────────────────────────
+// ─── Pedido
 
 export type StatusPedido =
   | "CRIADO"
@@ -94,8 +91,8 @@ export type StatusPedido =
 
 export type PendenciaPedido =
   | "NENHUMA"
-  | "RUPTURA_ESTOQUE" 
-  | "DIVERGENCIA_CONFERENCIA" 
+  | "RUPTURA_ESTOQUE"
+  | "DIVERGENCIA_CONFERENCIA"
 
 export type StatusItemPedido = "PENDENTE" | "PENDENTE_ESTOQUE" | "SEPARADO" | "CANCELADO"
 
@@ -103,13 +100,13 @@ export interface ItemPedido {
   id: string
   produtoId: string
   quantidade: number
-  precoUnitario: number 
-  desconto: number 
+  precoUnitario: number
+  desconto: number
   status: StatusItemPedido
 }
 
 export interface EnderecoPedido {
-  enderecoId?: string 
+  enderecoId?: string
   logradouro: string
   numero: string
   bairro: string
@@ -118,9 +115,25 @@ export interface EnderecoPedido {
   cep: string
 }
 
+// União fechada — todo tipo de evento em uso real no projeto.
+// Adicionar um novo tipo aqui sempre que um novo evento for criado em código.
+export type TipoPedidoEvento =
+  | "PEDIDO_CRIADO"
+  | "ESTOQUE_RESERVADO"
+  | "PEDIDO_REPROCESSADO"
+  | "SEPARACAO_INICIADA"
+  | "SEPARACAO_CONCLUIDA"
+  | "RUPTURA_ESTOQUE_DETECTADA"
+  | "CONFERENCIA_INICIADA"
+  | "DIVERGENCIA_DETECTADA"
+  | "CONFERENCIA_CONCLUIDA"
+  | "PEDIDO_EXPEDIDO"
+  | "PEDIDO_ENTREGUE"
+  | "PEDIDO_CANCELADO"
+
 export interface PedidoEvento {
   id: string
-  tipo: string 
+  tipo: TipoPedidoEvento
   descricao: string
   dataHora: string
   usuarioId: string
@@ -128,7 +141,7 @@ export interface PedidoEvento {
 
 export interface Pedido {
   id: string
-  numero: number 
+  numero: number
   clienteId: string
   vendedorId: string
   endereco: EnderecoPedido
@@ -136,10 +149,102 @@ export interface Pedido {
   observacao?: string
   transportadora?: string
   status: StatusPedido
-  pendencia: PendenciaPedido 
+  pendencia: PendenciaPedido
   valorTotal: number
   criadoEm: string
-  statusAlteradoEm: string 
+  statusAlteradoEm: string
   eventos: PedidoEvento[]
   motivoCancelamento?: string
+  separadorId?: string
+}
+
+export interface Inventario {
+  produtoId: string
+  estoqueFisico: number
+  reservado: number
+  disponivel: number
+  estoqueMinimo: number
+  ultimaMovimentacao: string
+}
+
+
+export type TipoEstoqueMovimentacao = "RESERVA" | "LIBERACAO_RESERVA" | "SAIDA" | "ENTRADA_DEVOLUCAO"
+
+export interface EstoqueMovimentacao {
+  id: string
+  empresaId: string
+  produtoId: string
+  tipo: TipoEstoqueMovimentacao
+  quantidade: number
+  pedidoId?: string
+  dataHora: string
+  usuarioId: string
+}
+
+// ─── Configurações
+
+export type EnderecoConfiguracao = Omit<Endereco, "id" | "principal">
+
+export type PoliticaSenhaMinima = "BASICA" | "MEDIA" | "FORTE"
+
+export interface Configuracoes {
+  empresaId: string
+  regrasOperacionais: {
+    permitirAutoConferencia: boolean
+    permitirAprovacaoExcepcionalDivergencia: boolean
+  }
+  dadosEmpresa: {
+    razaoSocial: string
+    nomeFantasia?: string
+    cnpj: string
+    email?: string
+    telefone?: string
+    endereco?: EnderecoConfiguracao
+  }
+  deposito: {
+    nome: string
+    endereco: EnderecoConfiguracao
+    responsavel?: string
+  }
+  seguranca: {
+    tempoExpiracaoSessaoMinutos: number
+    politicaSenhaMinima: PoliticaSenhaMinima
+    duracaoSenhaTemporariaDias: number
+  }
+}
+
+// ─── Devoluções
+
+export type StatusDevolucao = "SOLICITADA" | "CONCLUIDA" | "CANCELADA"
+
+export type MotivoDevolucao =
+  | "PRODUTO_AVARIADO"
+  | "PRODUTO_INCORRETO"
+  | "DEFEITO"
+  | "DESISTENCIA_CLIENTE"
+  | "EXCESSO_COMPRA"
+  | "OUTRO"
+
+export interface ItemDevolucao {
+  itemPedidoId: string
+  produtoId: string
+  quantidadeSolicitada: number
+  quantidadeConfirmada: number | null // preenchido só na confirmação; null até lá
+  observacaoAjuste?: string // obrigatório na UI/store quando quantidadeConfirmada < quantidadeSolicitada; registra o motivo da divergência (ex: perda no transporte, desistência parcial)
+}
+
+export interface Devolucao {
+  id: string
+  empresaId: string
+  pedidoId: string
+  itens: ItemDevolucao[]
+  motivo: MotivoDevolucao
+  motivoOutroTexto?: string // obrigatório apenas quando motivo === "OUTRO"
+  status: StatusDevolucao
+  solicitadoPor: string // usuarioId — Vendedor ou Supervisor
+  solicitadoEm: string
+  confirmadoPor?: string // usuarioId — sempre um Supervisor
+  confirmadoEm?: string
+  canceladoPor?: string
+  canceladoEm?: string
 }

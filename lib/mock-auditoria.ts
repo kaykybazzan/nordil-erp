@@ -6,6 +6,7 @@ export type ModuloAuditoria =
   | "USUARIOS"
   | "CONFIGURACOES"
   | "AUTH"
+  | "DEVOLUCOES"
 
 export type AcaoAuditoria =
   | "CRIADO"
@@ -26,7 +27,13 @@ export interface RegistroAuditoria {
   acao: AcaoAuditoria
   entidadeId: string
   descricao: string
-  ip: string
+  empresaId: string
+  motivo?: string
+  camposAlterados?: {
+    campo: string
+    valorAnterior: string
+    valorNovo: string
+  }[]
 }
 
 export const MOCK_AUDITORIA: RegistroAuditoria[] = [
@@ -39,7 +46,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "CRIADO",
     entidadeId: "ped-001",
     descricao: "Pedido #1001 criado para cliente Construtora Horizonte.",
-    ip: "192.168.1.42",
+    empresaId: "emp-001",
   },
   {
     id: "aud-002",
@@ -50,7 +57,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "CRIADO",
     entidadeId: "ped-002",
     descricao: "Pedido #1002 criado para cliente Metalúrgica Ômega.",
-    ip: "192.168.1.42",
+    empresaId: "emp-001",
   },
   {
     id: "aud-003",
@@ -61,7 +68,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "ATUALIZADO",
     entidadeId: "prd-002",
     descricao: "Estoque de Furadeira de impacto 650W ajustado: 12 → 15 unidades.",
-    ip: "10.0.0.8",
+    empresaId: "emp-001",
   },
   {
     id: "aud-004",
@@ -72,7 +79,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "CRIADO",
     entidadeId: "usr-006",
     descricao: "Usuário Diego Fontes criado com função EXPEDICAO.",
-    ip: "192.168.1.10",
+    empresaId: "emp-001",
   },
   {
     id: "aud-005",
@@ -83,7 +90,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "CRIADO",
     entidadeId: "ped-003",
     descricao: "Pedido #1003 criado para cliente Eletro Peças Baiana.",
-    ip: "192.168.1.55",
+    empresaId: "emp-001",
   },
   {
     id: "aud-006",
@@ -94,7 +101,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "CRIADO",
     entidadeId: "ent-001",
     descricao: "Entrada de estoque NF 00042 registrada (fornecedor Tramontina).",
-    ip: "10.0.0.8",
+    empresaId: "emp-001",
   },
   {
     id: "aud-007",
@@ -105,7 +112,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "STATUS_ALTERADO",
     entidadeId: "ped-004",
     descricao: "Pedido #1004 aprovado na revisão: AGUARDANDO_REVISAO → RESERVADO.",
-    ip: "192.168.1.10",
+    empresaId: "emp-001",
   },
   {
     id: "aud-008",
@@ -116,7 +123,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "STATUS_ALTERADO",
     entidadeId: "ped-002",
     descricao: "Pedido #1002 conferido: EM_CONFERENCIA → CONFERIDO.",
-    ip: "10.0.0.15",
+    empresaId: "emp-001",
   },
   {
     id: "aud-009",
@@ -127,7 +134,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "ATUALIZADO",
     entidadeId: "prd-001",
     descricao: "Preço de venda do Jogo de chaves combinadas alterado: R$ 179,90 → R$ 189,90.",
-    ip: "192.168.1.10",
+    empresaId: "emp-001",
   },
   {
     id: "aud-010",
@@ -138,7 +145,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "STATUS_ALTERADO",
     entidadeId: "ped-002",
     descricao: "Pedido #1002 expedido: CONFERIDO → EXPEDIDO.",
-    ip: "10.0.0.22",
+    empresaId: "emp-001",
   },
   {
     id: "aud-011",
@@ -149,7 +156,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "ATUALIZADO",
     entidadeId: "cli-003",
     descricao: "Endereço principal da Eletro Peças Baiana atualizado.",
-    ip: "192.168.1.42",
+    empresaId: "emp-001",
   },
   {
     id: "aud-012",
@@ -160,7 +167,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "ATUALIZADO",
     entidadeId: "emp-001",
     descricao: "Configurações de notificações da empresa atualizadas.",
-    ip: "192.168.1.10",
+    empresaId: "emp-001",
   },
   {
     id: "aud-013",
@@ -171,7 +178,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "LOGIN",
     entidadeId: "usr-003",
     descricao: "Login realizado com sucesso.",
-    ip: "192.168.1.10",
+    empresaId: "emp-001",
   },
   {
     id: "aud-014",
@@ -181,8 +188,9 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     modulo: "PEDIDOS",
     acao: "CANCELADO",
     entidadeId: "ped-007",
-    descricao: "Pedido #1007 cancelado. Motivo: solicitação do cliente.",
-    ip: "192.168.1.10",
+    descricao: "Pedido #1007 cancelado.",
+    motivo: "solicitação do cliente",
+    empresaId: "emp-001",
   },
   {
     id: "aud-015",
@@ -193,7 +201,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "ATUALIZADO",
     entidadeId: "usr-002",
     descricao: "Role de Rafael Torres alterada: OPERADOR → SUPERVISOR.",
-    ip: "192.168.1.10",
+    empresaId: "emp-001",
   },
   {
     id: "aud-016",
@@ -204,7 +212,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "EXPORTADO",
     entidadeId: "emp-001",
     descricao: "Relatório de pedidos exportado em CSV.",
-    ip: "192.168.1.10",
+    empresaId: "emp-001",
   },
   {
     id: "aud-017",
@@ -215,7 +223,7 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "ATUALIZADO",
     entidadeId: "prd-005",
     descricao: "Inventário físico do Vergalhão CA-50 ajustado: 1.210 → 1.240 kg.",
-    ip: "10.0.0.8",
+    empresaId: "emp-001",
   },
   {
     id: "aud-018",
@@ -226,6 +234,6 @@ export const MOCK_AUDITORIA: RegistroAuditoria[] = [
     acao: "LOGIN",
     entidadeId: "usr-001",
     descricao: "Login realizado com sucesso.",
-    ip: "192.168.1.42",
+    empresaId: "emp-001",
   },
 ]
