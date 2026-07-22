@@ -14,6 +14,7 @@ import { StatusBadgePedido } from "@/components/pedidos/shared/status-badge"
 import { TimelineEventos } from "@/components/pedidos/detalhe/timeline-eventos"
 import { PainelRevisao } from "@/components/pedidos/detalhe/painel-revisao"
 import { PainelSupervisor } from "@/components/pedidos/detalhe/painel-supervisor"
+import { SolicitarDevolucaoForm } from "@/components/devolucoes/solicitar-devolucao-form"
 import type { Pedido, StatusItemPedido } from "@/types/domain"
 
 function formatBRL(v: number) {
@@ -310,21 +311,12 @@ export function DetalhePedidoScreen({ pedidoId }: DetalhePedidoScreenProps) {
         </div>
       )}
 
-      {/* TODO: Drawer de solicitação de devolução (tarefa futura) */}
-      {devolucaoDrawerAberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="rounded-xl bg-card p-6 shadow-lg">
-            <p className="text-sm text-muted-foreground">Drawer de solicitação de devolução - implementação futura</p>
-            <button
-              type="button"
-              onClick={() => setDevolucaoDrawerAberto(false)}
-              className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
-      )}
+      <SolicitarDevolucaoForm
+        open={devolucaoDrawerAberto}
+        pedido={pedido}
+        onOpenChange={setDevolucaoDrawerAberto}
+        onSuccess={() => showToast("Devolução solicitada com sucesso.")}
+      />
     </div>
   )
 }
