@@ -61,31 +61,49 @@ const VARIANT_CLASSES: Record<
   },
 }
 
+const SIZE_CLASSES: Record<
+  "sm" | "md",
+  { wrapper: string; icon: string }
+> = {
+  sm: {
+    wrapper: "px-1.5 py-0 text-[0.65rem]",
+    icon: "size-2.5",
+  },
+  md: {
+    wrapper: "px-2 py-0.5 text-xs",
+    icon: "size-3",
+  },
+}
+
 export function StatusBadgePedido({
   status,
   pendencia = "NENHUMA",
+  size = "md",
   className,
 }: {
   status: StatusPedido
   pendencia?: PendenciaPedido
+  size?: "sm" | "md"
   className?: string
 }) {
   const variant = resolveVariant(status, pendencia)
   const { wrapper, dot } = VARIANT_CLASSES[variant]
+  const { wrapper: sizeWrapper, icon: sizeIcon } = SIZE_CLASSES[size]
   const temPendencia = pendencia !== "NENHUMA"
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded font-medium",
         wrapper,
+        sizeWrapper,
         className,
       )}
     >
       {temPendencia ? (
-        <AlertTriangle aria-hidden className="size-3 shrink-0" />
+        <AlertTriangle aria-hidden className={cn("shrink-0", sizeIcon)} />
       ) : (
-        <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", dot)} />
+        <span aria-hidden className={cn("shrink-0 rounded-full", dot, size === "sm" ? "size-1" : "size-1.5")} />
       )}
       {STATUS_LABEL[status]}
     </span>

@@ -1,7 +1,8 @@
 "use client"
 
-import type { Inventario, Produto } from "@/types/domain"
+import type { InventarioEstoque, Produto } from "@/types/domain"
 import { MOCK_PRODUTOS } from "./mock-produtos"
+import { registrarMovimentacao, calcularReservado } from "./estoque-ledger"
 
 /**
  * Categorias do catálogo — usadas no filtro da tela de estoque.
@@ -48,7 +49,7 @@ const PRODUTO_FORNECEDOR_MAP: Record<string, string> = {
 /**
  * Estoques mínimos por produto. Em produção, seria um campo da tabela Inventario.
  */
-const ESTOQUE_MINIMO_MAP: Record<string, number> = {
+export const ESTOQUE_MINIMO_MAP: Record<string, number> = {
   "prd-001": 20,
   "prd-002": 5,
   "prd-003": 100,
@@ -60,19 +61,42 @@ const ESTOQUE_MINIMO_MAP: Record<string, number> = {
 }
 
 /**
- * Reservas (quantidade comprometida em pedidos aguardando separação).
- * Em produção, calculada dinamicamente a partir das tabelas de pedidos.
+ * Inicializa o ledger de estoque com as reservas mockadas.
+ * Isso substitui o RESERVADO_MAP estático, mantendo os mesmos valores.
  */
-const RESERVADO_MAP: Record<string, number> = {
-  "prd-001": 5,
-  "prd-002": 2,
-  "prd-003": 30,
-  "prd-004": 8,
-  "prd-005": 100,
-  "prd-006": 10,
-  "prd-007": 20,
-  "prd-008": 2,
+function inicializarLedgerMock() {
+  const reservasIniciais: Record<string, number> = {
+    "prd-001": 5,
+    "prd-002": 2,
+    "prd-003": 30,
+    "prd-004": 8,
+    "prd-005": 100,
+    "prd-006": 10,
+    "prd-007": 20,
+    "prd-008": 2,
+  }
+
+  const dataHoraBase = new Date("2026-07-01T09:00:00-03:00").toISOString()
+
+  Object.entries(reservasIniciais).forEach(([produtoId, quantidade], index) => {
+    const produto = MOCK_PRODUTOS.find((p) => p.id === produtoId)
+    if (!produto) return
+
+    registrarMovimentacao({
+      id: `mov-reserva-${index + 1}`,
+      empresaId: produto.empresaId,
+      produtoId,
+      tipo: "RESERVA",
+      quantidade,
+      pedidoId: `ped-mock-${index + 1}`,
+      dataHora: dataHoraBase,
+      usuarioId: "usr-001",
+    })
+  })
 }
+
+// Inicializa o ledger na primeira importação
+inicializarLedgerMock()
 
 /**
  * Retorna a categoria de um produto pelo ID.
@@ -98,9 +122,9 @@ export function obterFornecedorProduto(produtoId: string): string {
 export function calcularInventario(
   produto: Produto,
   ultimaMovimentacao: string = new Date().toISOString()
-): Inventario {
+): InventarioEstoque {
   const estoqueFisico = produto.estoqueAtual
-  const reservado = RESERVADO_MAP[produto.id] || 0
+  const reservado = calcularReservado(produto.id, produto.empresaId)
   const estoqueMinimo = ESTOQUE_MINIMO_MAP[produto.id] || 10
   const disponivel = Math.max(0, estoqueFisico - reservado)
 
@@ -137,7 +161,7 @@ export function calcularStatusEstoque(
  * Carrega todos os inventários agregados.
  * Em produção, viria do backend com paginação e filtros aplicados lá.
  */
-export function carregarInventarios(): (Inventario & {
+export function carregarInventarios(): (InventarioEstoque & {
   produto: Produto
   categoria: Categoria
   fornecedor: string
@@ -155,3 +179,7 @@ export function carregarInventarios(): (Inventario & {
     }
   })
 }
+
+// Compatibilidade com quem espera um array pronto (ex: dashboard/page.tsx),
+// em vez de chamar carregarInventarios() toda vez.
+export const MOCK_INVENTARIO = carregarInventarios()

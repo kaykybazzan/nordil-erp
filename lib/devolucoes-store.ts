@@ -4,7 +4,7 @@ import type { Devolucao, ItemDevolucao, Usuario } from "@/types/domain"
 import { MOCK_DEVOLUCOES } from "./mock-devolucoes"
 import { usePedidosStore } from "./pedidos-store"
 import { registrarMovimentacao } from "./estoque-ledger"
-import { registrarAuditoria } from "./auditoria"
+import { actionRegistrarAuditoria } from "./actions/auditoria"
 import { podeGerenciarDevolucao } from "./policies"
 
 function gerarId(prefixo: string) {
@@ -36,7 +36,7 @@ interface ConfirmarDevolucaoInput {
 interface DevolucoesState {
   devolucoes: Devolucao[]
 
-  solicitarDevolucao: (input: SolicitarDevolucaoInput) => ResultadoDevolucao
+  solicitarDevolucao: (input: SolicitarDevolucaoInput) => Promise<ResultadoDevolucao>
   confirmarDevolucao: (devolucaoId: string, input: ConfirmarDevolucaoInput, usuario: Usuario) => ResultadoDevolucao
   cancelarDevolucao: (devolucaoId: string, usuario: Usuario) => ResultadoDevolucao
   calcularSaldoDevolvivel: (pedidoId: string, itemPedidoId: string) => number
@@ -47,7 +47,7 @@ export const useDevolucoesStore = create<DevolucoesState>()(
     (set, get) => ({
       devolucoes: MOCK_DEVOLUCOES,
 
-      solicitarDevolucao: (input) => {
+      solicitarDevolucao: async (input) => {
         const { pedidoId, itens, motivo, motivoOutroTexto, usuario } = input
 
         // Validação: motivo OUTRO exige motivoOutroTexto
@@ -115,15 +115,15 @@ export const useDevolucoesStore = create<DevolucoesState>()(
         }
 
         // Registrar auditoria
-        registrarAuditoria({
+        const auditResult = await actionRegistrarAuditoria({
           modulo: "DEVOLUCOES",
           acao: "CRIADO",
           entidadeId: devolucaoId,
           descricao: `Devolução solicitada para pedido ${pedidoId}.`,
-          usuarioId: usuario.id,
-          usuarioNome: usuario.nome,
-          empresaId: usuario.empresaId,
         })
+        if (!auditResult.ok) {
+          console.error("Erro ao registrar auditoria:", auditResult.error)
+        }
 
         set((state) => ({
           devolucoes: [...state.devolucoes, devolucao],
@@ -160,6 +160,7 @@ export const useDevolucoesStore = create<DevolucoesState>()(
 
         // Validação: quantidadeConfirmada nunca pode ser maior que quantidadeSolicitada
         // Validação: observacaoAjuste obrigatória quando quantidadeConfirmada < quantidadeSolicitada
+        // Validação cumulativa: quantidadeConfirmada + outras devoluções CONCLUIDA não pode exceder quantidade originalmente comprada
         for (const itemOriginal of devolucao.itens) {
           const itemConfirmado = input.itens.find((i) => i.itemPedidoId === itemOriginal.itemPedidoId)
           if (!itemConfirmado) continue // já validado acima, mas TypeScript não sabe
@@ -170,6 +171,29 @@ export const useDevolucoesStore = create<DevolucoesState>()(
 
           if (itemConfirmado.quantidadeConfirmada < itemOriginal.quantidadeSolicitada && !itemConfirmado.observacaoAjuste?.trim()) {
             return { sucesso: false, erro: `Observação de ajuste é obrigatória para o item ${itemOriginal.itemPedidoId} pois a quantidade confirmada (${itemConfirmado.quantidadeConfirmada}) é menor que a solicitada (${itemOriginal.quantidadeSolicitada}).` }
+          }
+
+          // Validação cumulativa: verificar se quantidadeConfirmada + outras devoluções CONCLUIDA excede quantidade original
+          const pedido = usePedidosStore.getState().pedidos.find((p) => p.id === devolucao.pedidoId)
+          if (pedido) {
+            const itemPedido = pedido.itens.find((i) => i.id === itemOriginal.itemPedidoId)
+            if (itemPedido) {
+              const quantidadeVendida = itemPedido.quantidade
+              
+              // Somar quantidadeConfirmada de outras devoluções CONCLUIDA para este item (excluindo a atual)
+              const totalOutrasConcluidas = get().devolucoes
+                .filter((d) => d.pedidoId === devolucao.pedidoId && d.status === "CONCLUIDA" && d.id !== devolucaoId)
+                .reduce((acc, d) => {
+                  const item = d.itens.find((i) => i.itemPedidoId === itemOriginal.itemPedidoId)
+                  return acc + (item?.quantidadeConfirmada ?? 0)
+                }, 0)
+
+              const totalAposConfirmacao = totalOutrasConcluidas + itemConfirmado.quantidadeConfirmada
+              
+              if (totalAposConfirmacao > quantidadeVendida) {
+                return { sucesso: false, erro: `Quantidade confirmada (${itemConfirmado.quantidadeConfirmada}) somada a outras devoluções já concluídas (${totalOutrasConcluidas}) excede a quantidade originalmente comprada (${quantidadeVendida}) para o item ${itemOriginal.itemPedidoId}.` }
+              }
+            }
           }
         }
 
@@ -212,14 +236,13 @@ export const useDevolucoesStore = create<DevolucoesState>()(
         }
 
         // Registrar auditoria
-        registrarAuditoria({
+        actionRegistrarAuditoria({
           modulo: "DEVOLUCOES",
           acao: "STATUS_ALTERADO",
           entidadeId: devolucaoId,
           descricao: `Devolução confirmada e concluída para pedido ${devolucao.pedidoId}.`,
-          usuarioId: usuario.id,
-          usuarioNome: usuario.nome,
-          empresaId: usuario.empresaId,
+        }).then((result) => {
+          if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
         })
 
         set((state) => ({
@@ -255,14 +278,13 @@ export const useDevolucoesStore = create<DevolucoesState>()(
         }
 
         // Registrar auditoria
-        registrarAuditoria({
+        actionRegistrarAuditoria({
           modulo: "DEVOLUCOES",
           acao: "CANCELADO",
           entidadeId: devolucaoId,
           descricao: `Devolução cancelada para pedido ${devolucao.pedidoId}.`,
-          usuarioId: usuario.id,
-          usuarioNome: usuario.nome,
-          empresaId: usuario.empresaId,
+        }).then((result) => {
+          if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
         })
 
         set((state) => ({

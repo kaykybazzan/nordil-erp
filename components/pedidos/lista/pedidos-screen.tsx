@@ -17,11 +17,11 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Pedido, StatusPedido } from "@/types/domain"
-import { MOCK_PEDIDOS } from "@/lib/mock-pedidos"
 import { MOCK_CLIENTES, formatDataCadastro } from "@/lib/mock-clientes"
 import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
-import { useAuth } from "@/lib/auth-context"
+import { useCurrentUser } from "@/lib/auth-context"
 import { StatusBadgePedido } from "@/components/pedidos/shared/status-badge"
+import { usePedidosStore, podeCancelarPedido } from "@/lib/pedidos-store"
 
 const PAGE_SIZE = 30
 
@@ -49,9 +49,6 @@ const STATUS_LABEL: Record<StatusPedido, string> = {
   ENTREGUE: "Entregue",
   CANCELADO: "Cancelado",
 }
-
-// Statuses que não permitem cancelamento
-const STATUS_NAO_CANCELAVEIS: StatusPedido[] = ["EXPEDIDO", "ENTREGUE", "CANCELADO"]
 
 // Formata valor em BRL
 function formatBRL(valor: number): string {
@@ -92,12 +89,13 @@ function isAtrasado(pedido: Pedido): boolean {
 
 export function PedidosScreen() {
   const router = useRouter()
-  const { currentUser } = useAuth()
+  const currentUser = useCurrentUser()
   const isVendedor = currentUser.funcao === "VENDAS"
 
-  const [pedidos, setPedidos] = useState<Pedido[]>([])
+  const pedidos = usePedidosStore((s) => s.pedidos)
+  const cancelarPedido = usePedidosStore((s) => s.cancelarPedido)
+
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
   const [busca, setBusca] = useState("")
   const [buscaDebounced, setBuscaDebounced] = useState("")
   const [filtroAtrasados, setFiltroAtrasados] = useState(false)
@@ -124,24 +122,9 @@ export function PedidosScreen() {
 
   // Carrega dados iniciais (simula skeleton)
   useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(false)
-    const t = window.setTimeout(() => {
-      if (cancelled) return
-      try {
-        setPedidos(MOCK_PEDIDOS)
-        setLoading(false)
-      } catch {
-        setError(true)
-        setLoading(false)
-      }
-    }, 700)
-    return () => {
-      cancelled = true
-      window.clearTimeout(t)
-    }
-  }, [])
+  const t = window.setTimeout(() => setLoading(false), 700)
+  return () => window.clearTimeout(t)
+}, [])
 
   // Debounce da busca
   useEffect(() => {
@@ -233,7 +216,7 @@ export function PedidosScreen() {
   const temMais = filtrados.length > visiveis
 
   const semPedidos = !loading && pedidos.length === 0
-  const semResultado = !loading && !error && pedidos.length > 0 && filtrados.length === 0
+  const semResultado = !loading && pedidos.length > 0 && filtrados.length === 0
 
   // Toggle multi-seleção de status
   function toggleStatus(s: StatusPedido) {
@@ -251,29 +234,19 @@ export function PedidosScreen() {
     return `${filtroStatus.length} selecionados`
   }, [filtroStatus])
 
-  // Cancela pedido (mock em memória)
   const confirmarCancelamento = useCallback(async () => {
-    if (!cancelandoId || !motivoCancelamento.trim()) return
-    setCancelando(true)
-    await new Promise((r) => setTimeout(r, 500))
-    setPedidos((prev) =>
-      prev.map((p) =>
-        p.id === cancelandoId
-          ? {
-              ...p,
-              status: "CANCELADO" as StatusPedido,
-              pendencia: "NENHUMA",
-              motivoCancelamento: motivoCancelamento.trim(),
-              statusAlteradoEm: new Date().toISOString(),
-            }
-          : p,
-      ),
-    )
-    setCancelando(false)
-    setCancelandoId(null)
-    setMotivoCancelamento("")
-    showToast("Pedido cancelado.")
-  }, [cancelandoId, motivoCancelamento])
+  if (!cancelandoId || !motivoCancelamento.trim()) return
+  setCancelando(true)
+  const resultado = await cancelarPedido(cancelandoId, currentUser, motivoCancelamento.trim())
+  setCancelando(false)
+  if (!resultado.ok) {
+    showToast(resultado.error)
+    return
+  }
+  setCancelandoId(null)
+  setMotivoCancelamento("")
+  showToast("Pedido cancelado.")
+  }, [cancelandoId, motivoCancelamento, cancelarPedido, currentUser])
 
   function abrirCancelamento(id: string, e: React.MouseEvent) {
     e.stopPropagation()
@@ -456,14 +429,11 @@ export function PedidosScreen() {
                   </tr>
                 ))}
 
-              {!loading &&
-                !error &&
-                paginados.map((p) => {
-                  const duracao = formatDuracao(p.statusAlteradoEm)
-                  const atrasado = isAtrasado(p)
-                  const podeCancelar = !STATUS_NAO_CANCELAVEIS.includes(p.status)
-
-                  return (
+              {!loading && paginados.map((p) => {
+              const duracao = formatDuracao(p.statusAlteradoEm)
+              const atrasado = isAtrasado(p)
+              const podeCancelar = podeCancelarPedido(p, currentUser)
+              return (
                     <tr
                       key={p.id}
                       tabIndex={0}
@@ -559,30 +529,6 @@ export function PedidosScreen() {
           </table>
         </div>
 
-        {/* Estado de erro */}
-        {error && (
-          <EmptyState
-            icon={<XCircle className="size-6 text-destructive" />}
-            title="Erro ao carregar pedidos."
-            hint={
-              <button
-                type="button"
-                onClick={() => {
-                  setLoading(true)
-                  setError(false)
-                  window.setTimeout(() => {
-                    setPedidos(MOCK_PEDIDOS)
-                    setLoading(false)
-                  }, 700)
-                }}
-                className="mt-1 rounded-md border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-muted"
-              >
-                Tentar novamente
-              </button>
-            }
-          />
-        )}
-
         {/* Estado vazio sem filtros */}
         {semPedidos && (
           <EmptyState
@@ -606,7 +552,7 @@ export function PedidosScreen() {
         )}
 
         {/* Carregar mais */}
-        {!loading && !error && temMais && (
+        {!loading && temMais && (
           <div className="flex justify-center border-t border-border p-3">
             <button
               type="button"

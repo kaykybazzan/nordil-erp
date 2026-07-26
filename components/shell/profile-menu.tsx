@@ -4,9 +4,13 @@ import { Menu } from '@base-ui/react/menu'
 import { Avatar } from '@base-ui/react/avatar'
 import { LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { initials, type UserProfile } from '@/lib/shell-config'
+import { initials, getRoleLabel } from '@/lib/shell-config'
+import type { Usuario } from '@/types/domain'
+import { useAuth } from '@/lib/auth-context'
 
-export function ProfileMenu({ profile }: { profile: UserProfile }) {
+export function ProfileMenu({ usuario }: { usuario: Usuario }) {
+  const { logout } = useAuth()
+
   return (
     <Menu.Root>
       <Menu.Trigger
@@ -18,10 +22,10 @@ export function ProfileMenu({ profile }: { profile: UserProfile }) {
         aria-label="Abrir menu do perfil"
       >
         <Avatar.Root className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary text-[0.72rem] font-semibold text-primary-foreground select-none">
-          <Avatar.Fallback>{initials(profile.name)}</Avatar.Fallback>
+          <Avatar.Fallback>{initials(usuario.nome)}</Avatar.Fallback>
         </Avatar.Root>
         <span className="hidden max-w-[9rem] truncate text-sm font-medium text-foreground sm:block">
-          {profile.name.split(' ')[0]}
+          {usuario.nome.split(' ')[0]}
         </span>
       </Menu.Trigger>
 
@@ -40,13 +44,13 @@ export function ProfileMenu({ profile }: { profile: UserProfile }) {
           >
             <div className="flex flex-col gap-0.5 px-2.5 py-2">
               <span className="truncate text-sm font-semibold text-foreground">
-                {profile.name}
+                {usuario.nome}
               </span>
               <span className="truncate font-mono text-xs text-muted-foreground">
-                {profile.email}
+                {usuario.email}
               </span>
               <span className="mt-1 w-fit rounded bg-accent px-1.5 py-0.5 text-[0.68rem] font-medium text-accent-foreground">
-                {profile.roleLabel}
+                {getRoleLabel(usuario)}
               </span>
             </div>
 
@@ -57,7 +61,7 @@ export function ProfileMenu({ profile }: { profile: UserProfile }) {
                 'flex cursor-default items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground outline-none select-none',
                 'data-[highlighted]:bg-muted data-[highlighted]:text-foreground',
               )}
-              onClick={() => console.log('[v0] logout clicked')}
+              onClick={logout}
             >
               <LogOut className="size-4 text-muted-foreground" />
               Sair

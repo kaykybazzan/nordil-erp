@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Truck, CheckCircle2, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { MOCK_PEDIDOS } from "@/lib/mock-pedidos"
 import { MOCK_CLIENTES } from "@/lib/mock-clientes"
 import { StatusBadgePedido } from "@/components/pedidos/shared/status-badge"
-import type { Pedido } from "@/types/domain"
+import { usePedidosStore } from "@/lib/pedidos-store"
+import { useCurrentUser } from "@/lib/auth-context"
 
 function formatBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -22,8 +22,13 @@ function Skeleton({ className }: { className?: string }) {
 
 export function ExpedicaoScreen() {
   const router = useRouter()
+  const currentUser = useCurrentUser()
+
+  const todosPedidos = usePedidosStore((s) => s.pedidos)
+  const expedirPedido = usePedidosStore((s) => s.expedirPedido)
+  const marcarEntregue = usePedidosStore((s) => s.marcarEntregue)
+
   const [loading, setLoading] = useState(true)
-  const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [transportadoras, setTransportadoras] = useState<Record<string, string>>({})
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | null>(null)
@@ -35,16 +40,13 @@ export function ExpedicaoScreen() {
   }
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      setPedidos(
-        MOCK_PEDIDOS.filter(
-          (p) => p.status === "CONFERIDO" || p.status === "EXPEDIDO",
-        ).map((p) => ({ ...p })),
-      )
-      setLoading(false)
-    }, 700)
+    const t = setTimeout(() => setLoading(false), 700)
     return () => clearTimeout(t)
   }, [])
+
+  const pedidos = todosPedidos.filter(
+    (p) => p.status === "CONFERIDO" || p.status === "EXPEDIDO",
+  )
 
   function expedir(id: string) {
     const transp = transportadoras[id]?.trim()
@@ -52,20 +54,12 @@ export function ExpedicaoScreen() {
       showToast("Informe a transportadora antes de expedir.")
       return
     }
-    setPedidos((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? { ...p, status: "EXPEDIDO" as const, transportadora: transp }
-          : p,
-      ),
-    )
+    expedirPedido(id, currentUser, transp)
     showToast("Pedido expedido com sucesso.")
   }
 
-  function marcarEntregue(id: string) {
-    setPedidos((prev) =>
-      prev.map((p) => p.id === id ? { ...p, status: "ENTREGUE" as const } : p),
-    )
+  function marcarEntregueHandler(id: string) {
+    marcarEntregue(id, currentUser)
     showToast("Entrega confirmada.")
   }
 
@@ -171,7 +165,7 @@ export function ExpedicaoScreen() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => marcarEntregue(pedido.id)}
+                  onClick={() => marcarEntregueHandler(pedido.id)}
                   className="flex items-center gap-1.5 rounded-lg bg-[hsl(var(--success))] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
                 >
                   <CheckCircle2 className="h-4 w-4" />

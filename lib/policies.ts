@@ -1,4 +1,8 @@
-import type { Usuario } from "@/types/domain"
+import type { Usuario, InventarioContagem } from "@/types/domain"
+
+type UsuarioComRole = {
+  role: string
+}
 
 /**
  * Verifica se um usuário tem permissão para visualizar relatórios.
@@ -7,6 +11,16 @@ import type { Usuario } from "@/types/domain"
  * OPERADOR não pode ver relatórios.
  */
 export function podeVerRelatorios(usuario: Usuario): boolean {
+  return usuario.role === "ADMIN" || usuario.role === "SUPERVISOR"
+}
+
+/**
+ * Verifica se um usuário tem permissão para acessar Auditoria.
+ * ADMIN sempre pode ver auditoria.
+ * SUPERVISOR também pode ver auditoria.
+ * OPERADOR não pode ver auditoria.
+ */
+export function podeVerAuditoria(usuario: UsuarioComRole): boolean {
   return usuario.role === "ADMIN" || usuario.role === "SUPERVISOR"
 }
 
@@ -40,4 +54,50 @@ export function podeAcessarDevolucoes(usuario: Usuario): boolean {
  */
 export function podeGerenciarDevolucao(usuario: Usuario): boolean {
   return usuario.role === "ADMIN" || usuario.role === "SUPERVISOR"
+}
+
+// ─── Inventário Contagem
+
+/**
+ * Verifica se um usuário tem permissão para abrir um inventário de contagem.
+ * Apenas Supervisor e Admin podem abrir inventários.
+ */
+export function podeAbrirInventario(usuario: Usuario): boolean {
+  return usuario.role === "SUPERVISOR" || usuario.role === "ADMIN"
+}
+
+/**
+ * Verifica se um usuário tem permissão para contar produtos em um inventário.
+ * Responsável designado sempre pode. Supervisor/Admin também podem contar
+ * (a matriz trata os dois como classe geral, não restrita ao inventário específico).
+ */
+export function podeContarInventario(usuario: Usuario, inventario: InventarioContagem): boolean {
+  if (usuario.role === "SUPERVISOR" || usuario.role === "ADMIN") return true
+  return usuario.id === inventario.responsavelContagemId
+}
+
+/**
+ * Verifica se um usuário tem permissão para aplicar ajustes de estoque
+ * decorrentes de divergências de inventário.
+ * Apenas Supervisor e Admin podem aplicar ajustes.
+ */
+export function podeAplicarAjusteInventario(usuario: Usuario): boolean {
+  return usuario.role === "SUPERVISOR" || usuario.role === "ADMIN"
+}
+
+/**
+ * Verifica se um usuário tem permissão para finalizar um inventário.
+ * Apenas Supervisor e Admin podem finalizar.
+ */
+export function podeFinalizarInventario(usuario: Usuario): boolean {
+  return usuario.role === "SUPERVISOR" || usuario.role === "ADMIN"
+}
+
+/**
+ * Verifica se um usuário tem permissão para reatribuir o responsável
+ * pela contagem de um inventário.
+ * Qualquer Supervisor/Admin, não só quem abriu o inventário original.
+ */
+export function podeReatribuirResponsavelInventario(usuario: Usuario): boolean {
+  return usuario.role === "SUPERVISOR" || usuario.role === "ADMIN"
 }

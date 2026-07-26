@@ -6,7 +6,7 @@ import { X, AlertTriangle, Check, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Pedido, MotivoDevolucao } from "@/types/domain"
 import { useDevolucoesStore } from "@/lib/devolucoes-store"
-import { useAuth } from "@/lib/auth-context"
+import { useCurrentUser } from "@/lib/auth-context"
 import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
 import { Modal } from "@/components/ui/modal"
 
@@ -34,7 +34,7 @@ const MOTIVO_LABELS: Record<MotivoDevolucao, string> = {
 }
 
 export function SolicitarDevolucaoForm({ open, pedido, onOpenChange, onSuccess }: SolicitarDevolucaoFormProps) {
-  const { currentUser } = useAuth()
+  const currentUser = useCurrentUser()
   const { calcularSaldoDevolvivel, solicitarDevolucao } = useDevolucoesStore()
 
   const [itensSelecionados, setItensSelecionados] = useState<Record<string, ItemSelecionado>>({})
@@ -122,7 +122,7 @@ export function SolicitarDevolucaoForm({ open, pedido, onOpenChange, onSuccess }
       quantidadeSolicitada: item.quantidade,
     }))
 
-    const resultado = solicitarDevolucao({
+    const resultado = await solicitarDevolucao({
       pedidoId: pedido.id,
       itens: itensArray,
       motivo: motivo as MotivoDevolucao,

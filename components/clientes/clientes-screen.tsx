@@ -20,6 +20,8 @@ import {
 } from "@/lib/mock-clientes"
 import { StatusBadge } from "./status-badge"
 import { ClienteDrawer, type SaveResult } from "./cliente-drawer"
+import { actionRegistrarAuditoria } from "@/lib/actions/auditoria"
+import { useCurrentUser } from "@/lib/auth-context"
 
 type StatusFiltro = "todos" | "ativo" | "bloqueado"
 
@@ -32,6 +34,7 @@ const FILTRO_LABEL: Record<StatusFiltro, string> = {
 }
 
 export function ClientesScreen() {
+  const currentUser = useCurrentUser()
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState("")
@@ -142,10 +145,58 @@ export function ClientesScreen() {
           ? prev.map((c) => (c.id === payload.id ? payload : c))
           : [payload, ...prev]
       })
+      
+      // Registrar auditoria para edição de cliente
+      const clienteAntigo = clientes.find((c) => c.id === payload.id)
+      if (clienteAntigo) {
+        const camposAlterados: { campo: string; valorAnterior: string; valorNovo: string }[] = []
+        
+        if (clienteAntigo.nome !== payload.nome) {
+          camposAlterados.push({ campo: "nome", valorAnterior: clienteAntigo.nome, valorNovo: payload.nome })
+        }
+        if (clienteAntigo.documento !== payload.documento) {
+          camposAlterados.push({ campo: "documento", valorAnterior: clienteAntigo.documento, valorNovo: payload.documento })
+        }
+        if (clienteAntigo.status !== payload.status) {
+          camposAlterados.push({ campo: "status", valorAnterior: clienteAntigo.status, valorNovo: payload.status })
+        }
+        
+        // Comparar enderecos (simplificado - verifica se a quantidade mudou)
+        if (clienteAntigo.enderecos.length !== payload.enderecos.length) {
+          camposAlterados.push({ 
+            campo: "enderecos", 
+            valorAnterior: `${clienteAntigo.enderecos.length} endereços`, 
+            valorNovo: `${payload.enderecos.length} endereços` 
+          })
+        }
+        
+        if (camposAlterados.length > 0) {
+          actionRegistrarAuditoria({
+            modulo: "CLIENTES",
+            acao: "ATUALIZADO",
+            entidadeId: payload.id,
+            descricao: `Cliente ${payload.nome} atualizado.`,
+            camposAlterados,
+          }).then((result) => {
+            if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
+          })
+        }
+      } else {
+        // Novo cliente
+        actionRegistrarAuditoria({
+          modulo: "CLIENTES",
+          acao: "CRIADO",
+          entidadeId: payload.id,
+          descricao: `Cliente ${payload.nome} criado.`,
+        }).then((result) => {
+          if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
+        })
+      }
+      
       showToast("Cliente salvo.")
       return { ok: true }
     },
-    [clientes],
+    [clientes, currentUser],
   )
 
   return (

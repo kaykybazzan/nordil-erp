@@ -35,6 +35,7 @@ export interface Produto {
   precoVenda: number
   status: "ativo" | "inativo"
   estoqueAtual: number
+  corredor?: string
 }
 
 export interface Fornecedor {
@@ -158,7 +159,7 @@ export interface Pedido {
   separadorId?: string
 }
 
-export interface Inventario {
+export interface InventarioEstoque {
   produtoId: string
   estoqueFisico: number
   reservado: number
@@ -168,7 +169,7 @@ export interface Inventario {
 }
 
 
-export type TipoEstoqueMovimentacao = "RESERVA" | "LIBERACAO_RESERVA" | "SAIDA" | "ENTRADA_DEVOLUCAO"
+export type TipoEstoqueMovimentacao = "RESERVA" | "LIBERACAO_RESERVA" | "SAIDA" | "ENTRADA_DEVOLUCAO" | "AJUSTE"
 
 export interface EstoqueMovimentacao {
   id: string
@@ -179,6 +180,7 @@ export interface EstoqueMovimentacao {
   pedidoId?: string
   dataHora: string
   usuarioId: string
+  direcao?: "ENTRADA" | "SAIDA"
 }
 
 // ─── Configurações
@@ -248,3 +250,77 @@ export interface Devolucao {
   canceladoPor?: string
   canceladoEm?: string
 }
+
+// ─── Inventário Contagem
+
+export type TipoEscopoInventario =
+  | "CORREDOR"
+  | "CATEGORIA"
+  | "LISTA_MANUAL"
+  | "ESTOQUE_BAIXO"
+  | "FORNECEDOR"
+  | "TODOS_PRODUTOS"
+
+export type StatusInventarioContagem = "EM_ANDAMENTO" | "FINALIZADO"
+
+export type StatusItemContagem =
+  | "PENDENTE"
+  | "CONTADO_OK"
+  | "DIVERGENTE"
+  | "NECESSITA_RECONTAGEM"
+  | "AJUSTADO"
+
+export interface ItemInventarioContagem {
+  id: string
+  produtoId: string
+  saldoEsperado: number
+  ultimaMovimentacaoId: string | null // snapshot: referência da última movimentação no momento da contagem/recontagem
+  quantidadeContada: number | null
+  status: StatusItemContagem
+  contadoEm: string | null
+}
+
+export interface InventarioContagem {
+  id: string
+  empresaId: string
+  tipoEscopo: TipoEscopoInventario
+  descricaoEscopo: string // ex: "Corredor A — 54 itens", gerado na abertura
+  recorte: string | null // valor do corredor/categoria/fornecedor selecionado, null se TODOS_PRODUTOS ou LISTA_MANUAL
+  observacao?: string
+  itens: ItemInventarioContagem[]
+  status: StatusInventarioContagem
+  abertoPorId: string
+  responsavelContagemId: string
+  abertoEm: string
+  finalizadoEm: string | null
+  finalizadoComPendencias: boolean
+}
+
+// ─── Auditoria
+
+export const MODULOS_AUDITORIA = [
+  "PEDIDOS",
+  "CLIENTES",
+  "PRODUTOS",
+  "ESTOQUE",
+  "USUARIOS",
+  "CONFIGURACOES",
+  "AUTH",
+  "DEVOLUCOES",
+  "INVENTARIO",
+] as const
+
+export type ModuloAuditoria = (typeof MODULOS_AUDITORIA)[number]
+
+export const ACOES_AUDITORIA = [
+  "CRIADO",
+  "ATUALIZADO",
+  "CANCELADO",
+  "EXCLUIDO",
+  "LOGIN",
+  "LOGOUT",
+  "STATUS_ALTERADO",
+  "EXPORTADO",
+] as const
+
+export type AcaoAuditoria = (typeof ACOES_AUDITORIA)[number]

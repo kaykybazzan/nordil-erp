@@ -67,6 +67,7 @@ export function novoEnderecoVazio(): Endereco {
 export const MOCK_CLIENTES: Cliente[] = [
   {
     id: "cli-001",
+    empresaId: "emp-001",
     nome: "Metalúrgica Sul Ltda",
     documento: "12.345.678/0001-90",
     status: "ativo",
@@ -96,6 +97,7 @@ export const MOCK_CLIENTES: Cliente[] = [
   },
   {
     id: "cli-002",
+    empresaId: "emp-001",
     nome: "Comercial Vitória EIRELI",
     documento: "98.765.432/0001-10",
     status: "ativo",
@@ -115,6 +117,7 @@ export const MOCK_CLIENTES: Cliente[] = [
   },
   {
     id: "cli-003",
+    empresaId: "emp-001",
     nome: "João Batista Pereira",
     documento: "123.456.789-09",
     status: "bloqueado",
@@ -134,6 +137,7 @@ export const MOCK_CLIENTES: Cliente[] = [
   },
   {
     id: "cli-004",
+    empresaId: "emp-001",
     nome: "Distribuidora Norte Alimentos S.A.",
     documento: "45.678.901/0001-33",
     status: "ativo",
@@ -153,6 +157,7 @@ export const MOCK_CLIENTES: Cliente[] = [
   },
   {
     id: "cli-005",
+    empresaId: "emp-001",
     nome: "Ana Carolina Menezes",
     documento: "987.654.321-00",
     status: "ativo",
@@ -172,6 +177,7 @@ export const MOCK_CLIENTES: Cliente[] = [
   },
   {
     id: "cli-006",
+    empresaId: "emp-001",
     nome: "Ferragens União Ltda",
     documento: "33.444.555/0001-66",
     status: "bloqueado",
@@ -191,6 +197,7 @@ export const MOCK_CLIENTES: Cliente[] = [
   },
   {
     id: "cli-007",
+    empresaId: "emp-001",
     nome: "Auto Peças Litoral ME",
     documento: "22.111.000/0001-45",
     status: "ativo",
@@ -210,6 +217,7 @@ export const MOCK_CLIENTES: Cliente[] = [
   },
   {
     id: "cli-008",
+    empresaId: "emp-001",
     nome: "Roberto Camargo Instalações",
     documento: "456.789.123-55",
     status: "ativo",

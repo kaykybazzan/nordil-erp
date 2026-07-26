@@ -2,27 +2,30 @@
 
 import { Menu as MenuIcon, Search, Bell, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { UserProfile } from '@/lib/shell-config'
+import type { Usuario } from '@/types/domain'
+import type { HeaderVariant } from '@/lib/shell-config'
 import { ProfileMenu } from './profile-menu'
 
 export type Crumb = { key: string; label: string }
 
 export function TopHeader({
-  profile,
+  usuario,
+  headerVariant,
   crumbs,
   onOpenMobileNav,
   onOpenSearch,
   onOpenNotifications,
   notificationCount,
 }: {
-  profile: UserProfile
+  usuario: Usuario
+  headerVariant: HeaderVariant
   crumbs: Crumb[]
   onOpenMobileNav: () => void
   onOpenSearch: () => void
   onOpenNotifications: () => void
   notificationCount: number
 }) {
-  const isFull = profile.header === 'full'
+  const isFull = headerVariant === 'full'
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-3 sm:px-4">
@@ -110,7 +113,7 @@ export function TopHeader({
 
       <div className={cn('h-6 w-px bg-border', isFull ? 'mx-1' : 'ml-auto mr-1')} />
 
-      <ProfileMenu profile={profile} />
+      <ProfileMenu usuario={usuario} />
     </header>
   )
 }

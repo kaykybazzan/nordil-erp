@@ -4,24 +4,24 @@ import { useMemo, useState } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 import { Search, CornerDownLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { UserProfile } from '@/lib/shell-config'
+import type { NavItem } from '@/lib/shell-config'
 
 export function CommandPalette({
   open,
   onOpenChange,
-  profile,
+  nav,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  profile: UserProfile
+  nav: NavItem[]
 }) {
   const [query, setQuery] = useState('')
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return profile.nav
-    return profile.nav.filter((n) => n.label.toLowerCase().includes(q))
-  }, [query, profile.nav])
+    if (!q) return nav
+    return nav.filter((n) => n.label.toLowerCase().includes(q))
+  }, [query, nav])
 
   return (
     <Dialog.Root

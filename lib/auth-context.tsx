@@ -1,35 +1,58 @@
 "use client"
-
-import { createContext, useContext, type ReactNode } from "react"
+import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import type { Usuario } from "@/types/domain"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
 
-const MOCKED_CURRENT_USER: Usuario = MOCK_USUARIOS[0]
+export function useAuth() {
+  const { data: session, status } = useSession()
 
-interface AuthContextValue {
-  currentUser: Usuario
-}
+  const currentUser: Usuario | null = session?.user ? {
+    id: session.user.id,
+    nome: session.user.name,
+    email: session.user.email,
+    senha: "", // Não expomos a senha do usuário
+    empresaId: session.user.empresaId,
+    role: session.user.role as any,
+    funcao: session.user.funcao as any,
+    precisaTrocarSenha: session.user.precisaTrocarSenha,
+    status: "ativo", // Assumimos ativo se a sessão existe
+  } : null
 
-const AuthContext = createContext<AuthContextValue | null>(null)
-
-export function AuthProvider({
-  children,
-  overrideUser,
-}: {
-  children: ReactNode
-  overrideUser?: Usuario
-}) {
-  return (
-    <AuthContext.Provider value={{ currentUser: overrideUser ?? MOCKED_CURRENT_USER }}>
-      {children}
-    </AuthContext.Provider>
-  )
-}
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext)
-  if (!ctx) {
-    throw new Error("useAuth precisa estar dentro de <AuthProvider>")
+  async function login(email: string, senha: string) {
+    const resultado = await nextAuthSignIn("credentials", { email, senha, redirect: false })
+    return resultado
   }
-  return ctx
+
+  async function logout() {
+    await nextAuthSignOut({ redirect: true, callbackUrl: "/login" })
+  }
+
+  return { currentUser, loading: status === "loading", login, logout }
+}
+
+/**
+ * Hook que garante que currentUser não seja null dentro de rotas protegidas.
+ * Se o usuário não estiver autenticado, redireciona para /login.
+ * Use este hook em componentes dentro de app/(shell)/* que são protegidos pelo middleware.
+ */
+export function useCurrentUser(): Usuario {
+  const { currentUser, loading } = useAuth()
+  const router = useRouter()
+
+  if (loading) {
+    // Durante o loading, lançamos um erro para que o componente possa tratar
+    // ou retornar um estado de carregamento. Como a maioria dos componentes
+    // não tem tratamento explícito de loading, vamos retornar um placeholder
+    // que evita erros de TypeScript. Em produção, isso pode ser melhorado
+    // com Suspense ou tratamento explícito de loading.
+    throw new Promise(() => {}) // Suspense infinito até loading terminar
+  }
+
+  if (!currentUser) {
+    // Se não está loading e currentUser é null, redireciona para login
+    router.replace("/login")
+    throw new Error("Usuário não autenticado, redirecionando para /login")
+  }
+
+  return currentUser
 }

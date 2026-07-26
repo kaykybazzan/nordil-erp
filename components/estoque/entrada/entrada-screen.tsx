@@ -508,7 +508,7 @@ function VistaHistorico({
   onFiltroFornecedor: (v: string) => void
   filtroMenuAberto: boolean
   onToggleFiltroMenu: () => void
-  filtroMenuRef: React.RefObject<HTMLDivElement>
+  filtroMenuRef: React.RefObject<HTMLDivElement | null>
   dataInicio: string
   onDataInicio: (v: string) => void
   dataFim: string
@@ -753,8 +753,8 @@ function VistaFormulario({
   onFornecedorBusca: (v: string) => void
   fornecedorMenuAberto: boolean
   onToggleFornecedorMenu: () => void
-  fornecedorMenuRef: React.RefObject<HTMLDivElement>
-  fornecedorInputRef: React.RefObject<HTMLInputElement>
+  fornecedorMenuRef: React.RefObject<HTMLDivElement | null>
+  fornecedorInputRef: React.RefObject<HTMLInputElement | null>
   fornecedoresFiltrados: typeof MOCK_FORNECEDORES
   onSelecionarFornecedor: (f: typeof MOCK_FORNECEDORES[0]) => void
   numeroNF: string

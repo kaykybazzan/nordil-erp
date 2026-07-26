@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation"
 import { ClipboardCheck, CheckCircle2, AlertTriangle, X } from "lucide-react"
 import { Dialog } from "@base-ui/react/dialog"
 import { cn } from "@/lib/utils"
-import { MOCK_PEDIDOS } from "@/lib/mock-pedidos"
 import { MOCK_CLIENTES } from "@/lib/mock-clientes"
 import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
 import { StatusBadgePedido } from "@/components/pedidos/shared/status-badge"
-import type { Pedido } from "@/types/domain"
+import { usePedidosStore } from "@/lib/pedidos-store"
+import { useCurrentUser } from "@/lib/auth-context"
 
 function formatBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -24,8 +24,15 @@ function Skeleton({ className }: { className?: string }) {
 
 export function ConferenciaScreen() {
   const router = useRouter()
+  const currentUser = useCurrentUser()
+
+  const todosPedidos = usePedidosStore((s) => s.pedidos)
+  const confirmarConferencia = usePedidosStore((s) => s.confirmarConferencia)
+  const registrarDivergenciaConferencia = usePedidosStore(
+    (s) => s.registrarDivergenciaConferencia,
+  )
+
   const [loading, setLoading] = useState(true)
-  const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [conferindoId, setConferindoId] = useState<string | null>(null)
   const [checklist, setChecklist] = useState<Record<string, boolean>>({})
   const [divergencia, setDivergencia] = useState("")
@@ -39,18 +46,14 @@ export function ConferenciaScreen() {
   }
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      setPedidos(
-        MOCK_PEDIDOS.filter((p) => p.status === "EM_CONFERENCIA").map((p) => ({ ...p })),
-      )
-      setLoading(false)
-    }, 700)
+    const t = setTimeout(() => setLoading(false), 700)
     return () => clearTimeout(t)
   }, [])
 
+  const pedidos = todosPedidos.filter((p) => p.status === "EM_CONFERENCIA")
   const pedidoConferindo = pedidos.find((p) => p.id === conferindoId)
 
-  function abrirConferencia(pedido: Pedido) {
+  function abrirConferencia(pedido: (typeof pedidos)[number]) {
     const initial: Record<string, boolean> = {}
     pedido.itens.forEach((i) => { initial[i.id] = false })
     setChecklist(initial)
@@ -68,24 +71,16 @@ export function ConferenciaScreen() {
         .every((i) => checklist[i.id])
     : false
 
-  function confirmarConferencia() {
+  function confirmarConferenciaHandler() {
     if (!conferindoId) return
-    setPedidos((prev) =>
-      prev.map((p) => p.id === conferindoId ? { ...p, status: "CONFERIDO" as const } : p),
-    )
+    confirmarConferencia(conferindoId, currentUser)
     setConferindoId(null)
     showToast("Conferência confirmada. Pedido pronto para expedição.")
   }
 
-  function registrarDivergencia() {
+  function registrarDivergenciaHandler() {
     if (!conferindoId || !divergencia.trim()) return
-    setPedidos((prev) =>
-      prev.map((p) =>
-        p.id === conferindoId
-          ? { ...p, pendencia: "DIVERGENCIA_CONFERENCIA" as const }
-          : p,
-      ),
-    )
+    registrarDivergenciaConferencia(conferindoId, currentUser, divergencia.trim())
     setConferindoId(null)
     showToast("Divergência registrada. Pedido sinalizado para revisão.")
   }
@@ -234,7 +229,7 @@ export function ConferenciaScreen() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={confirmarConferencia}
+                    onClick={confirmarConferenciaHandler}
                     disabled={!todosConferidos}
                     className="flex items-center gap-1.5 rounded-lg bg-[hsl(var(--success))] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
                   >
@@ -244,7 +239,7 @@ export function ConferenciaScreen() {
                   {divergencia.trim() && (
                     <button
                       type="button"
-                      onClick={registrarDivergencia}
+                      onClick={registrarDivergenciaHandler}
                       className="flex items-center gap-1.5 rounded-lg border border-[hsl(var(--warning))]/50 bg-[hsl(var(--warning))]/8 px-4 py-2 text-sm font-medium text-[hsl(var(--warning))] hover:bg-[hsl(var(--warning))]/15 transition-colors"
                     >
                       <AlertTriangle className="h-4 w-4" />

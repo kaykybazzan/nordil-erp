@@ -8,7 +8,7 @@ import { MOCK_PEDIDOS } from "@/lib/mock-pedidos"
 import { MOCK_CLIENTES } from "@/lib/mock-clientes"
 import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
 import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
-import { useAuth } from "@/lib/auth-context"
+import { useCurrentUser } from "@/lib/auth-context"
 import { podeAcessarDevolucoes } from "@/lib/policies"
 import { StatusBadgePedido } from "@/components/pedidos/shared/status-badge"
 import { TimelineEventos } from "@/components/pedidos/detalhe/timeline-eventos"
@@ -50,7 +50,7 @@ interface DetalhePedidoScreenProps {
 
 export function DetalhePedidoScreen({ pedidoId }: DetalhePedidoScreenProps) {
   const router = useRouter()
-  const { currentUser } = useAuth()
+  const currentUser = useCurrentUser()
   const [loading, setLoading] = useState(true)
   const [pedido, setPedido] = useState<Pedido | null>(null)
   const [notFound, setNotFound] = useState(false)

@@ -13,6 +13,7 @@ import {
   fracionadoPadrao,
   parsePreco,
 } from "@/lib/mock-produtos"
+import { useCurrentUser } from "@/lib/auth-context"
 
 export type SaveResult = { ok: true } | { ok: false; error: string }
 
@@ -38,6 +39,7 @@ export function ProdutoDrawer({
   const [unidade, setUnidade] = useState<UnidadeMedida>("UN")
   const [fracionado, setFracionado] = useState(false)
   const [preco, setPreco] = useState("")
+  const [custo, setCusto] = useState("")
   const [status, setStatus] = useState<Produto["status"]>("ativo")
 
   const [deactivateConfirm, setDeactivateConfirm] = useState(false)
@@ -45,6 +47,7 @@ export function ProdutoDrawer({
   const [formError, setFormError] = useState<string | null>(null)
 
   const firstFieldRef = useRef<HTMLInputElement>(null)
+  const currentUser = useCurrentUser()
 
   // Hidrata o formulário quando o drawer abre.
   useEffect(() => {
@@ -58,6 +61,9 @@ export function ProdutoDrawer({
     setPreco(
       produto ? String(produto.precoVenda).replace(".", ",") : "",
     )
+    setCusto(
+      produto ? String(produto.custo).replace(".", ",") : "",
+    )
     setStatus(produto?.status ?? "ativo")
     setDeactivateConfirm(false)
     setSaving(false)
@@ -65,11 +71,13 @@ export function ProdutoDrawer({
   }, [open, produto])
 
   const precoNum = parsePreco(preco)
+  const custoNum = parsePreco(custo)
   const nomeVazio = nome.trim().length === 0
   const marcaVazia = marca.trim().length === 0
   const precoInvalido = !Number.isFinite(precoNum) || precoNum <= 0
+  const custoInvalido = !Number.isFinite(custoNum) || custoNum <= 0
   const podeSalvar =
-    !nomeVazio && !marcaVazia && Boolean(unidade) && !precoInvalido && !saving
+    !nomeVazio && !marcaVazia && Boolean(unidade) && !precoInvalido && !custoInvalido && !saving
 
   // Ao trocar a unidade, assume o padrão de fracionamento (sobrescrevível).
   function handleUnidadeChange(u: UnidadeMedida) {
@@ -96,6 +104,7 @@ export function ProdutoDrawer({
     setSaving(true)
     const payload: Produto = {
       id: produto?.id ?? `prd-${Math.random().toString(36).slice(2, 9)}`,
+      empresaId: produto?.empresaId ?? currentUser.empresaId,
       // SKU nunca é digitado: mantém o existente ou fica vazio (gerado ao salvar).
       skuInterno: produto?.skuInterno ?? "",
       referenciaComercial: referencia.trim() || undefined,
@@ -104,6 +113,7 @@ export function ProdutoDrawer({
       marca: marca.trim(),
       unidadeMedida: unidade,
       permiteFracionado: fracionado,
+      custo: custoNum,
       precoVenda: precoNum,
       status,
       estoqueAtual: produto?.estoqueAtual ?? 0,
@@ -384,6 +394,38 @@ export function ProdutoDrawer({
                     )}
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Custo */}
+            <div className="mb-3">
+              <label
+                htmlFor="prd-custo"
+                className="mb-1 block text-xs font-medium text-foreground"
+              >
+                Custo <span className="text-destructive">*</span>
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
+                  R$
+                </span>
+                <input
+                  id="prd-custo"
+                  inputMode="decimal"
+                  value={custo}
+                  onChange={(e) =>
+                    setCusto(e.target.value.replace(/[^\d.,]/g, ""))
+                  }
+                  placeholder="0,00"
+                  disabled={readonly}
+                  className={cn(
+                    "h-9 w-full rounded-md border bg-background pr-3 pl-9 text-right font-mono text-sm tabular-nums text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40",
+                    custo.length > 0 && custoInvalido
+                      ? "border-destructive"
+                      : "border-input focus-visible:border-ring",
+                    readonly && "bg-muted/50 text-muted-foreground cursor-not-allowed"
+                  )}
+                />
               </div>
             </div>
 

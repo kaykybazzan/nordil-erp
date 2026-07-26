@@ -6,7 +6,8 @@ import { ArrowLeft, Plus, Trash2, Loader2, ShoppingCart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MOCK_CLIENTES } from "@/lib/mock-clientes"
 import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
-import { useAuth } from "@/lib/auth-context"
+import { useCurrentUser } from "@/lib/auth-context"
+import { usePedidosStore } from "@/lib/pedidos-store"
 
 function formatBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -25,7 +26,8 @@ function newItem(): ItemForm {
 
 export function NovoPedidoScreen() {
   const router = useRouter()
-  const { currentUser } = useAuth()
+  const currentUser = useCurrentUser()
+  const criarPedido = usePedidosStore((s) => s.criarPedido)
 
   const [clienteId, setClienteId] = useState("")
   const [enderecoIdx, setEnderecoIdx] = useState(0)
@@ -97,9 +99,43 @@ export function NovoPedidoScreen() {
     e.preventDefault()
     if (!validate()) return
     setSubmitting(true)
-    await new Promise((r) => setTimeout(r, 1000))
+
+    const endereco = clienteSelecionado && enderecos[enderecoIdx]
+      ? {
+          enderecoId: enderecos[enderecoIdx].id,
+          logradouro: enderecos[enderecoIdx].logradouro,
+          numero: enderecos[enderecoIdx].numero,
+          bairro: enderecos[enderecoIdx].bairro,
+          cidade: enderecos[enderecoIdx].cidade,
+          uf: enderecos[enderecoIdx].uf,
+          cep: enderecos[enderecoIdx].cep,
+        }
+      : { logradouro: "", numero: "", bairro: "", cidade: "", uf: "", cep: "" }
+
+    const itensValidos = itens.filter((i) => i.produtoId && parseFloat(i.quantidade) > 0)
+
+    const pedido = criarPedido({
+      clienteId,
+      endereco,
+      observacao: observacao.trim() || undefined,
+      usuario: currentUser,
+      itens: itensValidos.map((i) => {
+        const produto = MOCK_PRODUTOS.find((p) => p.id === i.produtoId)!
+        return {
+          produtoId: i.produtoId,
+          quantidade: parseFloat(i.quantidade),
+          precoUnitario: produto.precoVenda,
+          desconto: parseFloat(i.desconto) || 0,
+        }
+      }),
+    })
+
     setSubmitting(false)
-    showToast("Pedido criado com sucesso!")
+    showToast(
+      pedido.status === "CRIADO"
+        ? "Pedido criado, mas sem estoque disponível para reserva."
+        : "Pedido criado com sucesso!",
+    )
     setTimeout(() => router.push("/pedidos"), 1200)
   }
 

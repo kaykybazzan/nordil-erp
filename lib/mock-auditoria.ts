@@ -1,22 +1,4 @@
-export type ModuloAuditoria =
-  | "PEDIDOS"
-  | "CLIENTES"
-  | "PRODUTOS"
-  | "ESTOQUE"
-  | "USUARIOS"
-  | "CONFIGURACOES"
-  | "AUTH"
-  | "DEVOLUCOES"
-
-export type AcaoAuditoria =
-  | "CRIADO"
-  | "ATUALIZADO"
-  | "CANCELADO"
-  | "EXCLUIDO"
-  | "LOGIN"
-  | "LOGOUT"
-  | "STATUS_ALTERADO"
-  | "EXPORTADO"
+import type { ModuloAuditoria, AcaoAuditoria } from "@/types/domain"
 
 export interface RegistroAuditoria {
   id: string

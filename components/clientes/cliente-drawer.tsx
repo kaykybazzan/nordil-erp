@@ -22,6 +22,7 @@ import {
   onlyDigits,
   tipoDocumento,
 } from "@/lib/mock-clientes"
+import { useCurrentUser } from "@/lib/auth-context"
 
 export type SaveResult = { ok: true } | { ok: false; error: string }
 
@@ -50,6 +51,7 @@ export function ClienteDrawer({
   onSave: (cliente: Cliente) => Promise<SaveResult>
 }) {
   const isEdit = Boolean(cliente)
+  const currentUser = useCurrentUser()
 
   const [nome, setNome] = useState("")
   const [documento, setDocumento] = useState("")
@@ -180,6 +182,7 @@ export function ClienteDrawer({
     setSaving(true)
     const payload: Cliente = {
       id: cliente?.id ?? `cli-${Math.random().toString(36).slice(2, 9)}`,
+      empresaId: cliente?.empresaId ?? currentUser.empresaId,
       nome: nome.trim(),
       documento: formatDocumento(documento),
       status,

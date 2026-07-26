@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
+import { SessionProvider } from 'next-auth/react'
 
 const plexSans = IBM_Plex_Sans({
   subsets: ['latin'],
@@ -39,7 +40,9 @@ export default function RootLayout({
       className={`${plexSans.variable} ${plexMono.variable} bg-background`}
     >
       <body className="font-sans antialiased">
-        {children}
+        <SessionProvider>
+          {children}
+        </SessionProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

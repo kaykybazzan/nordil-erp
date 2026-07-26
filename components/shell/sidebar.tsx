@@ -2,26 +2,27 @@
 
 import { Tooltip } from '@base-ui/react/tooltip'
 import { PanelLeftClose, PanelLeft, Boxes } from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import type { UserProfile } from '@/lib/shell-config'
+import type { NavItem } from '@/lib/shell-config'
 
 export function Sidebar({
-  profile,
-  activeKey,
-  onSelect,
+  nav,
+  company,
   collapsed,
   onToggleCollapse,
   showCollapseButton = true,
   loading = false,
 }: {
-  profile: UserProfile
-  activeKey: string
-  onSelect: (key: string) => void
+  nav: NavItem[]
+  company: string
   collapsed: boolean
   onToggleCollapse?: () => void
   showCollapseButton?: boolean
   loading?: boolean
 }) {
+  const pathname = usePathname()
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       {/* Brand */}
@@ -37,7 +38,7 @@ export function Sidebar({
         {!collapsed && (
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-semibold text-sidebar-accent-foreground">
-              {profile.company}
+              {company}
             </span>
             <span className="truncate text-[0.68rem] text-sidebar-foreground/70">
               Sistema de Depósito
@@ -61,13 +62,12 @@ export function Sidebar({
           </ul>
         ) : (
           <ul className="flex flex-col gap-0.5">
-            {profile.nav.map((item) => {
+            {nav.map((item) => {
               const Icon = item.icon
-              const active = item.key === activeKey
-              const button = (
-                <button
-                  type="button"
-                  onClick={() => onSelect(item.key)}
+              const active = pathname === item.href
+              const link = (
+                <Link
+                  href={item.href}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     'flex w-full items-center rounded-md text-sm font-medium outline-none transition-colors',
@@ -80,14 +80,14 @@ export function Sidebar({
                 >
                   <Icon className="size-[18px] shrink-0" />
                   {!collapsed && <span className="truncate">{item.label}</span>}
-                </button>
+                </Link>
               )
 
               return (
                 <li key={item.key}>
                   {collapsed ? (
                     <Tooltip.Root>
-                      <Tooltip.Trigger render={button} />
+                      <Tooltip.Trigger render={link} />
                       <Tooltip.Portal>
                         <Tooltip.Positioner side="right" sideOffset={8}>
                           <Tooltip.Popup className="rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background shadow-md data-[starting-style]:opacity-0 data-[ending-style]:opacity-0">
@@ -97,7 +97,7 @@ export function Sidebar({
                       </Tooltip.Portal>
                     </Tooltip.Root>
                   ) : (
-                    button
+                    link
                   )}
                 </li>
               )
