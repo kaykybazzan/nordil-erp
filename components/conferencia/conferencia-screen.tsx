@@ -71,16 +71,24 @@ export function ConferenciaScreen() {
         .every((i) => checklist[i.id])
     : false
 
-  function confirmarConferenciaHandler() {
+  async function confirmarConferenciaHandler() {
     if (!conferindoId) return
-    confirmarConferencia(conferindoId, currentUser)
+    const resultado = await confirmarConferencia(conferindoId)
+    if (!resultado.ok) {
+      showToast(resultado.error || "Erro ao confirmar conferência")
+      return
+    }
     setConferindoId(null)
     showToast("Conferência confirmada. Pedido pronto para expedição.")
   }
 
-  function registrarDivergenciaHandler() {
+  async function registrarDivergenciaHandler() {
     if (!conferindoId || !divergencia.trim()) return
-    registrarDivergenciaConferencia(conferindoId, currentUser, divergencia.trim())
+    const resultado = await registrarDivergenciaConferencia(conferindoId, divergencia.trim())
+    if (!resultado.ok) {
+      showToast(resultado.error || "Erro ao registrar divergência")
+      return
+    }
     setConferindoId(null)
     showToast("Divergência registrada. Pedido sinalizado para revisão.")
   }

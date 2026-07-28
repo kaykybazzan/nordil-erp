@@ -95,7 +95,7 @@ export type PendenciaPedido =
   | "RUPTURA_ESTOQUE"
   | "DIVERGENCIA_CONFERENCIA"
 
-export type StatusItemPedido = "PENDENTE" | "PENDENTE_ESTOQUE" | "SEPARADO" | "CANCELADO"
+export type StatusItemPedido = "PENDENTE" | "PENDENTE_ESTOQUE" | "SEPARADO" | "EXPEDIDO" | "CANCELADO"
 
 export interface ItemPedido {
   id: string
@@ -169,7 +169,7 @@ export interface InventarioEstoque {
 }
 
 
-export type TipoEstoqueMovimentacao = "RESERVA" | "LIBERACAO_RESERVA" | "SAIDA" | "ENTRADA_DEVOLUCAO" | "AJUSTE"
+export type TipoEstoqueMovimentacao = "RESERVA" | "LIBERACAO_RESERVA" | "SAIDA" | "ENTRADA" | "ENTRADA_DEVOLUCAO" | "AJUSTE"
 
 export interface EstoqueMovimentacao {
   id: string
@@ -324,3 +324,9 @@ export const ACOES_AUDITORIA = [
 ] as const
 
 export type AcaoAuditoria = (typeof ACOES_AUDITORIA)[number]
+
+// ─── Sequência de Numeração
+
+export const TIPOS_SEQUENCIA_NUMERACAO = ["PEDIDO", "NF", "OS", "INVENTARIO"] as const
+
+export type TipoSequenciaNumeracao = (typeof TIPOS_SEQUENCIA_NUMERACAO)[number]

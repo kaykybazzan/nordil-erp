@@ -20,10 +20,10 @@ import {
   ESTOQUE_MINIMO_MAP,
   calcularInventario,
   calcularStatusEstoque,
-  carregarInventarios,
   obterCategoriaProduto,
   obterFornecedorProduto,
 } from "@/lib/mock-inventario"
+import { actionCarregarInventarios } from "@/lib/actions/estoque"
 import { ProdutoDrawer, type SaveResult } from "@/components/produtos/produto-drawer"
 import { InventarioStatusBadge } from "./inventario-status-badge"
 
@@ -37,7 +37,7 @@ export function EstoqueScreen({
   onProductSelect?: (produtoId: string) => void
 }) {
   const router = useRouter()
-  const [inventarios, setInventarios] = useState<ReturnType<typeof carregarInventarios>>([])
+  const [inventarios, setInventarios] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState("")
   const [buscaDebounced, setBuscaDebounced] = useState("")
@@ -53,8 +53,11 @@ export function EstoqueScreen({
 
   // Carrega dados iniciais.
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      setInventarios(carregarInventarios())
+    const t = window.setTimeout(async () => {
+      const resultado = await actionCarregarInventarios()
+      if (resultado.ok && resultado.data) {
+        setInventarios(resultado.data)
+      }
       setLoading(false)
     }, 700)
     return () => window.clearTimeout(t)

@@ -14,13 +14,12 @@ import { cn } from "@/lib/utils"
 import type { Produto } from "@/types/domain"
 import {
   MARCAS,
-  MOCK_PRODUTOS,
   formatBRL,
-  gerarSku,
   onlyDigits,
 } from "@/lib/mock-produtos"
 import { ProdutoStatusBadge } from "./produto-status-badge"
 import { ProdutoDrawer, type SaveResult } from "./produto-drawer"
+import { useProdutosStore } from "@/lib/produtos-store"
 
 type StatusFiltro = "todos" | "ativo" | "inativo"
 
@@ -33,8 +32,7 @@ const STATUS_LABEL: Record<StatusFiltro, string> = {
 }
 
 export function ProdutosScreen() {
-  const [produtos, setProdutos] = useState<Produto[]>([])
-  const [loading, setLoading] = useState(true)
+  const { produtos, loading, carregarProdutos, criarProduto, atualizarProduto } = useProdutosStore()
   const [busca, setBusca] = useState("")
   const [buscaDebounced, setBuscaDebounced] = useState("")
   const [filtroStatus, setFiltroStatus] = useState<StatusFiltro>("todos")
@@ -48,14 +46,10 @@ export function ProdutosScreen() {
   const searchRef = useRef<HTMLInputElement>(null)
   const toastTimer = useRef<number | null>(null)
 
-  // Carrega dados iniciais (simula skeleton).
+  // Carrega dados iniciais.
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      setProdutos(MOCK_PRODUTOS)
-      setLoading(false)
-    }, 700)
-    return () => window.clearTimeout(t)
-  }, [])
+    carregarProdutos()
+  }, [carregarProdutos])
 
   // Debounce da busca.
   useEffect(() => {
@@ -129,39 +123,38 @@ export function ProdutosScreen() {
 
   const salvarProduto = useCallback(
     async (payload: Produto): Promise<SaveResult> => {
-      // Simula latência de rede.
-      await new Promise((r) => setTimeout(r, 500))
-
-      // Código de barras duplicado (só valida se preenchido; ignora o próprio).
-      if (payload.codigoBarras) {
-        const dup = produtos.some(
-          (p) =>
-            p.id !== payload.id && p.codigoBarras === payload.codigoBarras,
-        )
-        if (dup) {
-          return {
-            ok: false,
-            error: "Já existe um produto com este código de barras.",
-          }
-        }
+      const isEdit = Boolean(payload.id)
+      
+      // Prepara input para Server Action (remove campos que não devem ser enviados)
+      const input = {
+        skuInterno: payload.skuInterno || `PRD-${Date.now()}`, // Backend pode gerar se vazio
+        referenciaComercial: payload.referenciaComercial,
+        codigoBarras: payload.codigoBarras,
+        nome: payload.nome,
+        marca: payload.marca,
+        unidadeMedida: payload.unidadeMedida,
+        permiteFracionado: payload.permiteFracionado,
+        custo: payload.custo,
+        precoVenda: payload.precoVenda,
+        status: payload.status,
+        corredor: payload.corredor,
       }
 
-      setProdutos((prev) => {
-        const existe = prev.some((p) => p.id === payload.id)
-        if (existe) {
-          return prev.map((p) => (p.id === payload.id ? payload : p))
-        }
-        // Novo produto: gera o SKU interno no momento do salvamento.
-        const comSku: Produto = {
-          ...payload,
-          skuInterno: gerarSku(prev),
-        }
-        return [comSku, ...prev]
-      })
+      let resultado
+      if (isEdit) {
+        resultado = await atualizarProduto(payload.id, input)
+      } else {
+        resultado = await criarProduto(input)
+      }
+
+      if (!resultado.ok) {
+        return { ok: false, error: resultado.error }
+      }
+
       showToast("Produto salvo.")
       return { ok: true }
     },
-    [produtos],
+    [criarProduto, atualizarProduto],
   )
 
   return (

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { useCurrentUser } from "@/lib/auth-context"
 import { useKpi } from "@/lib/use-kpi"
-import { calcularIndicadoresMovimentacoes } from "@/lib/relatorios-movimentacoes"
+import { actionCalcularIndicadoresMovimentacoes } from "@/lib/actions/estoque"
 import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
 import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
 import type { TipoEstoqueMovimentacao } from "@/types/domain"
@@ -52,18 +52,17 @@ export function MovimentacoesRelatorio() {
     )
 
     const resultado = useKpi(
-        () => {
+        async () => {
             if (periodoInvalido) return null
-            return calcularIndicadoresMovimentacoes(
-                currentUser.empresaId,
-                new Date(periodo.inicio),
-                new Date(periodo.fim),
-                {
-                    tipo: tipo || undefined,
-                    produtoId: produtoId || undefined,
-                    operadorId: operadorId || undefined,
-                },
-            )
+            const result = await actionCalcularIndicadoresMovimentacoes({
+                dataInicio: periodo.inicio,
+                dataFim: periodo.fim,
+                tipo: tipo || undefined,
+                produtoId: produtoId || undefined,
+                operadorId: operadorId || undefined,
+            })
+            if (!result.ok || !result.data) return null
+            return result.data
         },
         [currentUser.empresaId, periodo.inicio, periodo.fim, tipo, produtoId, operadorId],
     )

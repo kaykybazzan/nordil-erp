@@ -6,8 +6,7 @@ import { X, AlertTriangle, Check, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Pedido, MotivoDevolucao } from "@/types/domain"
 import { useDevolucoesStore } from "@/lib/devolucoes-store"
-import { useCurrentUser } from "@/lib/auth-context"
-import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
+import { useProdutosStore } from "@/lib/produtos-store"
 import { Modal } from "@/components/ui/modal"
 
 interface SolicitarDevolucaoFormProps {
@@ -34,8 +33,8 @@ const MOTIVO_LABELS: Record<MotivoDevolucao, string> = {
 }
 
 export function SolicitarDevolucaoForm({ open, pedido, onOpenChange, onSuccess }: SolicitarDevolucaoFormProps) {
-  const currentUser = useCurrentUser()
   const { calcularSaldoDevolvivel, solicitarDevolucao } = useDevolucoesStore()
+  const produtosStore = useProdutosStore((s) => s.produtos)
 
   const [itensSelecionados, setItensSelecionados] = useState<Record<string, ItemSelecionado>>({})
   const [motivo, setMotivo] = useState<MotivoDevolucao | "">("")
@@ -43,6 +42,8 @@ export function SolicitarDevolucaoForm({ open, pedido, onOpenChange, onSuccess }
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [saldosCarregando, setSaldosCarregando] = useState(false)
+  const [saldos, setSaldos] = useState<Record<string, number>>({})
 
   const firstFieldRef = useRef<HTMLInputElement>(null)
 
@@ -55,12 +56,28 @@ export function SolicitarDevolucaoForm({ open, pedido, onOpenChange, onSuccess }
     setSubmitting(false)
     setFormError(null)
     setShowConfirmDialog(false)
+    setSaldos({})
   }, [open])
+
+  // Load saldo devolvível for each item when pedido changes
+  useEffect(() => {
+    const carregarSaldos = async () => {
+      setSaldosCarregando(true)
+      const novosSaldos: Record<string, number> = {}
+      for (const item of pedido.itens) {
+        const saldo = await calcularSaldoDevolvivel(pedido.id, item.id)
+        novosSaldos[item.id] = saldo
+      }
+      setSaldos(novosSaldos)
+      setSaldosCarregando(false)
+    }
+    carregarSaldos()
+  }, [pedido.id, calcularSaldoDevolvivel])
 
   // Calculate saldo devolvível for each item
   const itensComSaldo = pedido.itens.map((item) => ({
     ...item,
-    saldoDevolvivel: calcularSaldoDevolvivel(pedido.id, item.id),
+    saldoDevolvivel: saldos[item.id] ?? 0,
   }))
 
   const hasItensSelecionados = Object.keys(itensSelecionados).length > 0
@@ -118,7 +135,6 @@ export function SolicitarDevolucaoForm({ open, pedido, onOpenChange, onSuccess }
 
     const itensArray = Object.values(itensSelecionados).map((item) => ({
       itemPedidoId: item.itemPedidoId,
-      produtoId: item.produtoId,
       quantidadeSolicitada: item.quantidade,
     }))
 
@@ -127,7 +143,6 @@ export function SolicitarDevolucaoForm({ open, pedido, onOpenChange, onSuccess }
       itens: itensArray,
       motivo: motivo as MotivoDevolucao,
       motivoOutroTexto: motivo === "OUTRO" ? motivoOutroTexto : undefined,
-      usuario: currentUser,
     })
 
     setSubmitting(false)
@@ -190,9 +205,9 @@ export function SolicitarDevolucaoForm({ open, pedido, onOpenChange, onSuccess }
 
               <div className="flex flex-col gap-2">
                 {itensComSaldo.map((item) => {
-                  const produto = MOCK_PRODUTOS.find((p) => p.id === item.produtoId)
+                  const produto = produtosStore.find((p: any) => p.id === item.produtoId)
                   const selecionado = Boolean(itensSelecionados[item.id])
-                  const semSaldo = item.saldoDevolvivel === 0
+                  const semSaldo = item.saldoDevolvivel === 0 && !saldosCarregando
 
                   return (
                     <div
@@ -226,10 +241,10 @@ export function SolicitarDevolucaoForm({ open, pedido, onOpenChange, onSuccess }
                                 semSaldo ? "text-destructive" : "text-foreground",
                               )}
                             >
-                              {item.saldoDevolvivel}
+                              {saldosCarregando ? "Carregando..." : item.saldoDevolvivel}
                             </span>
                           </p>
-                          {semSaldo && (
+                          {semSaldo && !saldosCarregando && (
                             <p className="mt-1 text-[0.62rem] text-destructive">
                               Sem saldo para devolução
                             </p>

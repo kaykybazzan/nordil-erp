@@ -7,16 +7,16 @@ type KpiState<T> =
   | { status: "success"; value: T }
   | { status: "error"; value: null }
 
-export function useKpi<T>(compute: () => T, deps: React.DependencyList): KpiState<T> {
+export function useKpi<T>(compute: () => T | Promise<T>, deps: React.DependencyList): KpiState<T> {
   const [state, setState] = useState<KpiState<T>>({ status: "loading", value: null })
   const computeRef = useRef(compute)
   computeRef.current = compute
 
   useEffect(() => {
     setState({ status: "loading", value: null })
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       try {
-        const value = computeRef.current()
+        const value = await computeRef.current()
         setState({ status: "success", value })
       } catch {
         setState({ status: "error", value: null })

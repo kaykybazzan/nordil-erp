@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { useCurrentUser } from "@/lib/auth-context"
 import { useKpi } from "@/lib/use-kpi"
-import { calcularIndicadoresEstoque } from "@/lib/relatorios-estoque"
+import { actionCalcularIndicadoresEstoque } from "@/lib/actions/estoque"
 import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
 import { obterCategoriaProduto } from "@/lib/mock-inventario"
 import { IndicadorCard } from "@/components/relatorios/indicador-card"
@@ -38,11 +38,14 @@ export function EstoqueRelatorio() {
     )
 
     const resultado = useKpi(
-        () =>
-            calcularIndicadoresEstoque(currentUser.empresaId, {
+        async () => {
+            const result = await actionCalcularIndicadoresEstoque({
                 categoriaId: categoria || undefined,
                 produtoId: produtoId || undefined,
-            }),
+            })
+            if (!result.ok || !result.data) return null
+            return result.data
+        },
         [currentUser.empresaId, categoria, produtoId],
     )
 

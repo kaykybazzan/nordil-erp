@@ -8,8 +8,8 @@ import type {
   StatusItemContagem,
   EstoqueMovimentacao,
 } from "@/types/domain"
-import { MOCK_PRODUTOS } from "./mock-produtos"
-import { obterMovimentacoes, registrarMovimentacao } from "./estoque-ledger"
+import { prisma } from "./db"
+import { actionObterMovimentacoes, actionAplicarMovimentacao } from "./actions/estoque"
 import { actionRegistrarAuditoria } from "./actions/auditoria"
 import {
   podeAbrirInventario,
@@ -38,22 +38,26 @@ interface AbrirInventarioInput {
 interface InventarioContagemState {
   inventarios: InventarioContagem[]
 
-  abrirInventario: (input: AbrirInventarioInput) => ResultadoInventario
-  registrarContagem: (inventarioId: string, itemId: string, quantidadeContada: number, usuario: Usuario) => ResultadoInventario
-  recontarItem: (inventarioId: string, itemId: string, usuario: Usuario) => ResultadoInventario
-  aplicarAjuste: (inventarioId: string, itemId: string, usuario: Usuario) => ResultadoInventario
-  aplicarTodosAjustes: (inventarioId: string, usuario: Usuario) => ResultadoInventario
-  reatribuirResponsavel: (inventarioId: string, novoResponsavelId: string, usuario: Usuario) => ResultadoInventario
-  finalizarInventario: (inventarioId: string, usuario: Usuario) => ResultadoInventario
+  abrirInventario: (input: AbrirInventarioInput) => Promise<ResultadoInventario>
+  registrarContagem: (inventarioId: string, itemId: string, quantidadeContada: number, usuario: Usuario) => Promise<ResultadoInventario>
+  recontarItem: (inventarioId: string, itemId: string, usuario: Usuario) => Promise<ResultadoInventario>
+  aplicarAjuste: (inventarioId: string, itemId: string, usuario: Usuario) => Promise<ResultadoInventario>
+  aplicarTodosAjustes: (inventarioId: string, usuario: Usuario) => Promise<ResultadoInventario>
+  reatribuirResponsavel: (inventarioId: string, novoResponsavelId: string, usuario: Usuario) => Promise<ResultadoInventario>
+  finalizarInventario: (inventarioId: string, usuario: Usuario) => Promise<ResultadoInventario>
 }
 
-function calcularSaldoAtual(produtoId: string, empresaId: string): number {
-  const produto = MOCK_PRODUTOS.find((p) => p.id === produtoId)
+async function calcularSaldoAtual(produtoId: string, empresaId: string): Promise<number> {
+  const produto = await prisma.produto.findFirst({
+    where: { id: produtoId, empresaId },
+  })
   return produto ? produto.estoqueAtual : 0
 }
 
-function obterUltimaMovimentacaoId(produtoId: string): string | null {
-  const movimentacoes = obterMovimentacoes()
+async function obterUltimaMovimentacaoId(produtoId: string, empresaId: string): Promise<string | null> {
+  const resultado = await actionObterMovimentacoes({ produtoId })
+  if (!resultado.ok || !resultado.data) return null
+  const movimentacoes = resultado.data
   const movimentacoesProduto = movimentacoes.filter((m) => m.produtoId === produtoId)
   if (movimentacoesProduto.length === 0) return null
   // Ordenar por dataHora descendente e pegar a mais recente
@@ -61,29 +65,35 @@ function obterUltimaMovimentacaoId(produtoId: string): string | null {
   return ordenadas[0].id
 }
 
-function resolverProdutosDoEscopo(
+async function resolverProdutosDoEscopo(
   tipoEscopo: TipoEscopoInventario,
   recorte: string | null,
+  empresaId: string,
   listaManualProdutoIds?: string[]
 ) {
-  const produtosAtivos = MOCK_PRODUTOS.filter((p) => p.status === "ativo")
+  const produtos = await prisma.produto.findMany({
+    where: {
+      status: "ativo",
+      empresaId,
+    },
+  })
 
   switch (tipoEscopo) {
     case "CORREDOR":
       if (!recorte) return []
-      return produtosAtivos.filter((p) => p.corredor === recorte)
+      return produtos.filter((p) => p.corredor === recorte)
 
     case "CATEGORIA":
       if (!recorte) return []
-      return produtosAtivos.filter((p) => obterCategoriaProduto(p.id) === recorte)
+      return produtos.filter((p) => obterCategoriaProduto(p.id) === recorte)
 
     case "FORNECEDOR":
       if (!recorte) return []
-      return produtosAtivos.filter((p) => obterFornecedorProduto(p.id) === recorte)
+      return produtos.filter((p) => obterFornecedorProduto(p.id) === recorte)
 
     case "LISTA_MANUAL":
       if (!listaManualProdutoIds) return []
-      return produtosAtivos.filter((p) => listaManualProdutoIds.includes(p.id))
+      return produtos.filter((p) => listaManualProdutoIds.includes(p.id))
 
     case "ESTOQUE_BAIXO":
       // Produtos com estoqueAtual <= estoqueMinimo (usando mapa do mock-inventario)
@@ -97,10 +107,10 @@ function resolverProdutosDoEscopo(
         "prd-007": 50,
         "prd-008": 10,
       }
-      return produtosAtivos.filter((p) => p.estoqueAtual <= (ESTOQUE_MINIMO_MAP[p.id] || 10))
+      return produtos.filter((p) => p.estoqueAtual <= (ESTOQUE_MINIMO_MAP[p.id] || 10))
 
     case "TODOS_PRODUTOS":
-      return produtosAtivos
+      return produtos
 
     default:
       return []
@@ -131,7 +141,7 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
     (set, get) => ({
       inventarios: [],
 
-      abrirInventario: (input) => {
+      abrirInventario: async (input) => {
         const { tipoEscopo, recorte, listaManualProdutoIds, responsavelContagemId, observacao, usuario } = input
 
         // Validação: permissão
@@ -154,7 +164,7 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
         }
 
         // Resolver produtos do escopo
-        const produtos = resolverProdutosDoEscopo(tipoEscopo, recorte, listaManualProdutoIds)
+        const produtos = await resolverProdutosDoEscopo(tipoEscopo, recorte, usuario.empresaId, listaManualProdutoIds)
         if (produtos.length === 0) {
           return { sucesso: false, erro: "Nenhum produto encontrado para o escopo informado." }
         }
@@ -163,20 +173,21 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
         const inventarioId = gerarId("inv")
 
         // Gerar snapshot para cada produto
-        const itens: ItemInventarioContagem[] = produtos.map((produto) => {
-          const saldoEsperado = calcularSaldoAtual(produto.id, usuario.empresaId)
-          const ultimaMovimentacaoId = obterUltimaMovimentacaoId(produto.id)
+        const itens: ItemInventarioContagem[] = []
+        for (const produto of produtos) {
+          const saldoEsperado = await calcularSaldoAtual(produto.id, usuario.empresaId)
+          const ultimaMovimentacaoId = await obterUltimaMovimentacaoId(produto.id, usuario.empresaId)
 
-          return {
+          itens.push({
             id: gerarId("item"),
             produtoId: produto.id,
             saldoEsperado,
-            ultimaMovimentacaoId,
+            ultimaMovimentacaoId: ultimaMovimentacaoId || "",
             quantidadeContada: null,
             status: "PENDENTE" as StatusItemContagem,
             contadoEm: null,
-          }
-        })
+          })
+        }
 
         const descricaoEscopo = gerarDescricaoEscopo(tipoEscopo, recorte, itens.length)
 
@@ -213,7 +224,7 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
         return { sucesso: true, inventario }
       },
 
-      registrarContagem: (inventarioId, itemId, quantidadeContada, usuario) => {
+      registrarContagem: async (inventarioId, itemId, quantidadeContada, usuario) => {
         const inventario = get().inventarios.find((i) => i.id === inventarioId)
         if (!inventario) {
           return { sucesso: false, erro: "Inventário não encontrado." }
@@ -240,7 +251,11 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
         }
 
         // Verificar se existe movimentação nova após o snapshot do item
-        const movimentacoes = obterMovimentacoes()
+        const resultadoMovimentacoes = await actionObterMovimentacoes({ produtoId: item.produtoId })
+        if (!resultadoMovimentacoes.ok || !resultadoMovimentacoes.data) {
+          return { sucesso: false, erro: "Erro ao verificar movimentações." }
+        }
+        const movimentacoes = resultadoMovimentacoes.data
         const movimentacoesProduto = movimentacoes.filter((m) => m.produtoId === item.produtoId)
         const movimentacaoSnapshot = item.ultimaMovimentacaoId
           ? movimentacoesProduto.find((m) => m.id === item.ultimaMovimentacaoId)
@@ -289,7 +304,7 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
         return { sucesso: true, inventario: inventarioAtualizado }
       },
 
-      recontarItem: (inventarioId, itemId, usuario) => {
+      recontarItem: async (inventarioId, itemId, usuario) => {
         const inventario = get().inventarios.find((i) => i.id === inventarioId)
         if (!inventario) {
           return { sucesso: false, erro: "Inventário não encontrado." }
@@ -311,15 +326,15 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
         }
 
         // Gerar novo snapshot para o item
-        const novoSaldoEsperado = calcularSaldoAtual(item.produtoId, usuario.empresaId)
-        const novaUltimaMovimentacaoId = obterUltimaMovimentacaoId(item.produtoId)
+        const novoSaldoEsperado = await calcularSaldoAtual(item.produtoId, usuario.empresaId)
+        const novaUltimaMovimentacaoId = await obterUltimaMovimentacaoId(item.produtoId, usuario.empresaId)
 
         const itensAtualizados = inventario.itens.map((i) =>
           i.id === itemId
             ? {
                 ...i,
                 saldoEsperado: novoSaldoEsperado,
-                ultimaMovimentacaoId: novaUltimaMovimentacaoId,
+                ultimaMovimentacaoId: novaUltimaMovimentacaoId || "",
                 quantidadeContada: null,
                 status: "PENDENTE" as StatusItemContagem,
                 contadoEm: null,
@@ -339,7 +354,7 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
         return { sucesso: true, inventario: inventarioAtualizado }
       },
 
-      aplicarAjuste: (inventarioId, itemId, usuario) => {
+      aplicarAjuste: async (inventarioId, itemId, usuario) => {
         const inventario = get().inventarios.find((i) => i.id === inventarioId)
         if (!inventario) {
           return { sucesso: false, erro: "Inventário não encontrado." }
@@ -377,19 +392,16 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
 
         const direcao: "ENTRADA" | "SAIDA" = diferenca > 0 ? "ENTRADA" : "SAIDA"
         const quantidade = Math.abs(diferenca)
-        const agora = new Date().toISOString()
 
-        // Registrar movimentação de ajuste
-        registrarMovimentacao({
-          id: gerarId("mov"),
-          empresaId: inventario.empresaId,
+        // Registrar movimentação de ajuste via Server Action
+        const resultadoMovimentacao = await actionAplicarMovimentacao({
           produtoId: item.produtoId,
           tipo: "AJUSTE",
           quantidade,
-          dataHora: agora,
-          usuarioId: usuario.id,
-          direcao,
         })
+        if (!resultadoMovimentacao.ok) {
+          return { sucesso: false, erro: resultadoMovimentacao.error || "Erro ao registrar movimentação de ajuste." }
+        }
 
         // Atualizar status do item
         const itensAtualizados = inventario.itens.map((i) =>
@@ -407,7 +419,9 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
         }
 
         // Registrar auditoria
-        const produto = MOCK_PRODUTOS.find((p) => p.id === item.produtoId)
+        const produto = await prisma.produto.findFirst({
+          where: { id: item.produtoId, empresaId: inventario.empresaId },
+        })
         actionRegistrarAuditoria({
           modulo: "INVENTARIO",
           acao: "ATUALIZADO",
@@ -424,7 +438,7 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
         return { sucesso: true, inventario: inventarioAtualizado }
       },
 
-      aplicarTodosAjustes: (inventarioId, usuario) => {
+      aplicarTodosAjustes: async (inventarioId, usuario) => {
         const inventario = get().inventarios.find((i) => i.id === inventarioId)
         if (!inventario) {
           return { sucesso: false, erro: "Inventário não encontrado." }
@@ -449,7 +463,7 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
         // Aplicar ajuste para cada item divergente
         let inventarioAtualizado = inventario
         for (const item of itensDivergentes) {
-          const resultado = get().aplicarAjuste(inventarioId, item.id, usuario)
+          const resultado = await get().aplicarAjuste(inventarioId, item.id, usuario)
           if (!resultado.sucesso) {
             return resultado // Retorna o primeiro erro encontrado
           }
@@ -459,7 +473,7 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
         return { sucesso: true, inventario: inventarioAtualizado }
       },
 
-      reatribuirResponsavel: (inventarioId, novoResponsavelId, usuario) => {
+      reatribuirResponsavel: async (inventarioId, novoResponsavelId, usuario) => {
         const inventario = get().inventarios.find((i) => i.id === inventarioId)
         if (!inventario) {
           return { sucesso: false, erro: "Inventário não encontrado." }
@@ -504,7 +518,7 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
         return { sucesso: true, inventario: inventarioAtualizado }
       },
 
-      finalizarInventario: (inventarioId, usuario) => {
+      finalizarInventario: async (inventarioId, usuario) => {
         const inventario = get().inventarios.find((i) => i.id === inventarioId)
         if (!inventario) {
           return { sucesso: false, erro: "Inventário não encontrado." }

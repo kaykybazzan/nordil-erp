@@ -21,7 +21,8 @@ import { MOCK_CLIENTES, formatDataCadastro } from "@/lib/mock-clientes"
 import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
 import { useCurrentUser } from "@/lib/auth-context"
 import { StatusBadgePedido } from "@/components/pedidos/shared/status-badge"
-import { usePedidosStore, podeCancelarPedido } from "@/lib/pedidos-store"
+import { usePedidosStore } from "@/lib/pedidos-store"
+import { podeCancelarPedido } from "@/lib/pedidos"
 
 const PAGE_SIZE = 30
 
@@ -237,16 +238,16 @@ export function PedidosScreen() {
   const confirmarCancelamento = useCallback(async () => {
   if (!cancelandoId || !motivoCancelamento.trim()) return
   setCancelando(true)
-  const resultado = await cancelarPedido(cancelandoId, currentUser, motivoCancelamento.trim())
+  const resultado = await cancelarPedido(cancelandoId, motivoCancelamento.trim())
   setCancelando(false)
   if (!resultado.ok) {
-    showToast(resultado.error)
+    showToast(resultado.error || "Erro ao cancelar pedido")
     return
   }
   setCancelandoId(null)
   setMotivoCancelamento("")
   showToast("Pedido cancelado.")
-  }, [cancelandoId, motivoCancelamento, cancelarPedido, currentUser])
+  }, [cancelandoId, motivoCancelamento, cancelarPedido])
 
   function abrirCancelamento(id: string, e: React.MouseEvent) {
     e.stopPropagation()

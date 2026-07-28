@@ -116,7 +116,7 @@ export function ProdutoDrawer({
       custo: custoNum,
       precoVenda: precoNum,
       status,
-      estoqueAtual: produto?.estoqueAtual ?? 0,
+      estoqueAtual: produto?.estoqueAtual ?? 0, // Backend ignora este campo
     }
     const result = await onSave(payload)
     setSaving(false)

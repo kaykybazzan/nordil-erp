@@ -158,7 +158,7 @@ export default function InventarioContagemPage({ params }: { params: { id: strin
     setSubmitting(true)
     setFormError(null)
 
-    const resultado = inventarioStore.registrarContagem(inventario.id, itemId, quantidadeContada, currentUser)
+    const resultado = await inventarioStore.registrarContagem(inventario.id, itemId, quantidadeContada, currentUser)
 
     setSubmitting(false)
 
@@ -194,7 +194,7 @@ export default function InventarioContagemPage({ params }: { params: { id: strin
     setSubmitting(true)
     setFormError(null)
 
-    const resultado = inventarioStore.recontarItem(inventario.id, itemId, currentUser)
+    const resultado = await inventarioStore.recontarItem(inventario.id, itemId, currentUser)
 
     setSubmitting(false)
 
@@ -213,7 +213,7 @@ export default function InventarioContagemPage({ params }: { params: { id: strin
     setSubmitting(true)
     setFormError(null)
 
-    const resultado = inventarioStore.aplicarAjuste(inventario.id, itemId, currentUser)
+    const resultado = await inventarioStore.aplicarAjuste(inventario.id, itemId, currentUser)
 
     setSubmitting(false)
 
@@ -232,7 +232,7 @@ export default function InventarioContagemPage({ params }: { params: { id: strin
     setSubmitting(true)
     setFormError(null)
 
-    const resultado = inventarioStore.aplicarTodosAjustes(inventario.id, currentUser)
+    const resultado = await inventarioStore.aplicarTodosAjustes(inventario.id, currentUser)
 
     setSubmitting(false)
 
@@ -250,7 +250,7 @@ export default function InventarioContagemPage({ params }: { params: { id: strin
     setSubmitting(true)
     setFormError(null)
 
-    const resultado = inventarioStore.reatribuirResponsavel(inventario.id, novoResponsavelId, currentUser)
+    const resultado = await inventarioStore.reatribuirResponsavel(inventario.id, novoResponsavelId, currentUser)
 
     setSubmitting(false)
 
@@ -293,7 +293,7 @@ export default function InventarioContagemPage({ params }: { params: { id: strin
     setSubmitting(true)
     setFormError(null)
 
-    const resultado = inventarioStore.finalizarInventario(inventario.id, currentUser)
+    const resultado = await inventarioStore.finalizarInventario(inventario.id, currentUser)
 
     setSubmitting(false)
 

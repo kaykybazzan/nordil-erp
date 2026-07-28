@@ -4,6 +4,11 @@ type UsuarioComRole = {
   role: string
 }
 
+type UsuarioComRoleEFuncao = {
+  role: string
+  funcao: string
+}
+
 /**
  * Verifica se um usuário tem permissão para visualizar relatórios.
  * ADMIN sempre pode ver relatórios.
@@ -100,4 +105,34 @@ export function podeFinalizarInventario(usuario: Usuario): boolean {
  */
 export function podeReatribuirResponsavelInventario(usuario: Usuario): boolean {
   return usuario.role === "SUPERVISOR" || usuario.role === "ADMIN"
+}
+
+// ─── Pedidos - Conferência
+
+/**
+ * Verifica se um usuário tem permissão para operar em conferência de pedidos.
+ * ADMIN e SUPERVISOR sempre podem operar.
+ * OPERADOR com função CONFERENCIA também pode operar.
+ */
+export function podeOperarConferencia(usuario: UsuarioComRoleEFuncao): boolean {
+  return (
+    usuario.role === "ADMIN" ||
+    usuario.role === "SUPERVISOR" ||
+    usuario.funcao === "CONFERENCIA"
+  )
+}
+
+// ─── Pedidos - Expedição
+
+/**
+ * Verifica se um usuário tem permissão para operar em expedição de pedidos.
+ * ADMIN e SUPERVISOR sempre podem operar.
+ * OPERADOR com função EXPEDICAO também pode operar.
+ */
+export function podeOperarExpedicao(usuario: UsuarioComRoleEFuncao): boolean {
+  return (
+    usuario.role === "ADMIN" ||
+    usuario.role === "SUPERVISOR" ||
+    usuario.funcao === "EXPEDICAO"
+  )
 }

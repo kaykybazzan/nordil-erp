@@ -1,21 +1,25 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { MOCK_CLIENTES, formatDataCadastro } from "@/lib/mock-clientes"
+import { onlyDigits } from "@/lib/mock-clientes"
 import { DataTable, type DataTableColumn, type DataTableSort } from "@/components/ui/data-table"
 import { ClienteStatusBadge } from "@/components/status-badges"
 import { Button } from "@/components/ui/button"
 import { ClienteDrawer, type SaveResult } from "@/components/clientes/cliente-drawer"
-import { validarCliente } from "@/lib/clientes"
 import { useToast } from "@/components/ui/simple-toast"
 import type { Cliente } from "@/types/domain"
+import { useClientesStore } from "@/lib/clientes-store"
 
 const PAGE_SIZE = 30
 
 export default function ClientesPage() {
   const { showToast, Toaster } = useToast()
-
-  const [clientes, setClientes] = useState<Cliente[]>(MOCK_CLIENTES)
+  const clientesStore = useClientesStore()
+  const clientes = clientesStore.clientes
+  const loading = clientesStore.loading
+  const carregarClientes = clientesStore.carregarClientes
+  const criarCliente = clientesStore.criarCliente
+  const atualizarCliente = clientesStore.atualizarCliente
   const [buscaInput, setBuscaInput] = useState("")
   const [busca, setBusca] = useState("")
   const [statusFiltro, setStatusFiltro] = useState<"todos" | "ativo" | "bloqueado">("todos")
@@ -23,6 +27,10 @@ export default function ClientesPage() {
   const [drawerAberto, setDrawerAberto] = useState(false)
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
   const [sort, setSort] = useState<DataTableSort>({ columnId: "nome", direction: "asc" })
+
+  useEffect(() => {
+    carregarClientes()
+  }, [carregarClientes])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -67,19 +75,17 @@ export default function ClientesPage() {
   }
 
   async function handleSalvarCliente(cliente: Cliente): Promise<SaveResult> {
-    const erro = validarCliente(
-      { nome: cliente.nome, documento: cliente.documento, enderecos: cliente.enderecos },
-      clientes,
-      cliente.id,
-    )
-    if (erro) return { ok: false, error: erro }
+    const resultado = cliente.id
+      ? await atualizarCliente(cliente.id, cliente)
+      : await criarCliente(cliente)
 
-    setClientes((prev) => {
-      const existe = prev.some((c) => c.id === cliente.id)
-      return existe ? prev.map((c) => (c.id === cliente.id ? cliente : c)) : [cliente, ...prev]
-    })
-    showToast("Cliente salvo.", "success")
-    return { ok: true }
+    if (resultado.ok) {
+      showToast("Cliente salvo.", "success")
+      return { ok: true }
+    } else {
+      showToast(resultado.error || "Erro ao salvar cliente", "error")
+      return { ok: false, error: resultado.error }
+    }
   }
 
   const columns: DataTableColumn<Cliente>[] = [
@@ -89,7 +95,7 @@ export default function ClientesPage() {
     {
       id: "dataCadastro",
       header: "Data de cadastro",
-      cell: (c) => formatDataCadastro(c.dataCadastro),
+      cell: (c) => new Date(c.dataCadastro).toLocaleDateString("pt-BR"),
       hideOnTablet: true,
       sortable: true,
     },

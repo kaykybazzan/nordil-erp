@@ -1,6 +1,6 @@
-import type { Pedido, Usuario, PedidoEvento } from "@/types/domain"
-import { registrarMovimentacao } from "./estoque-ledger"
-import { actionRegistrarAuditoria } from "@/lib/actions/auditoria"
+import type { Pedido, Usuario } from "@/types/domain"
+
+type UsuarioBasico = { id: string; role: string; funcao: string }
 
 const STATUS_CANCELAVEL: Pedido["status"][] = [
     "CRIADO",
@@ -10,11 +10,11 @@ const STATUS_CANCELAVEL: Pedido["status"][] = [
     "CONFERIDO",
 ]
 
-function isVendedor(usuario: Usuario) {
+function isVendedor(usuario: UsuarioBasico) {
     return usuario.role === "OPERADOR" && usuario.funcao === "VENDAS"
 }
 
-function isSupervisorOuAdmin(usuario: Usuario) {
+function isSupervisorOuAdmin(usuario: UsuarioBasico) {
     return usuario.role === "SUPERVISOR" || usuario.role === "ADMIN"
 }
 
@@ -23,7 +23,7 @@ function isSupervisorOuAdmin(usuario: Usuario) {
  * Supervisor/Admin cancelam qualquer pedido até CONFERIDO.
  * A partir de EXPEDIDO, ninguém cancela (regra congelada do domínio).
  */
-export function podeCancelarPedido(pedido: Pedido, usuario: Usuario): boolean {
+export function podeCancelarPedido(pedido: Pedido, usuario: UsuarioBasico): boolean {
     if (!STATUS_CANCELAVEL.includes(pedido.status)) return false
 
     if (isSupervisorOuAdmin(usuario)) return true
@@ -33,77 +33,14 @@ export function podeCancelarPedido(pedido: Pedido, usuario: Usuario): boolean {
     return false
 }
 
-type CancelarPedidoResultado = { ok: true; pedido: Pedido } | { ok: false; error: string }
-
-export async function cancelarPedido(
-    pedido: Pedido,
-    usuario: Usuario,
-    motivo: string,
-): Promise<CancelarPedidoResultado> {
-    if (!motivo.trim()) {
-        return { ok: false, error: "Informe o motivo do cancelamento." }
-    }
-
-    if (!podeCancelarPedido(pedido, usuario)) {
-        return {
-            ok: false,
-            error: "Não foi possível cancelar — verifique se o pedido ainda está em um estado cancelável.",
-        }
-    }
-
-    const agora = new Date().toISOString()
-
-    // Reverter reserva de estoque para itens que tinham reserva ativa
-    const statusComReserva = ["RESERVADO", "EM_SEPARACAO", "EM_CONFERENCIA", "CONFERIDO"]
-    if (statusComReserva.includes(pedido.status)) {
-        pedido.itens.forEach((item) => {
-            if (item.status !== "CANCELADO") {
-                registrarMovimentacao({
-                    id: `mov-liberacao-${Math.random().toString(36).slice(2, 9)}`,
-                    empresaId: usuario.empresaId,
-                    produtoId: item.produtoId,
-                    tipo: "LIBERACAO_RESERVA",
-                    quantidade: item.quantidade,
-                    pedidoId: pedido.id,
-                    dataHora: agora,
-                    usuarioId: usuario.id,
-                })
-            }
-        })
-    }
-
-    const evento: PedidoEvento = {
-        id: `evt-${Math.random().toString(36).slice(2, 9)}`,
-        tipo: "PEDIDO_CANCELADO",
-        descricao: motivo.trim(),
-        dataHora: agora,
-        usuarioId: usuario.id,
-    }
-
-    const pedidoCancelado: Pedido = {
-        ...pedido,
-        status: "CANCELADO",
-        motivoCancelamento: motivo.trim(),
-        statusAlteradoEm: agora,
-        itens: pedido.itens.map((item) =>
-            item.status === "CANCELADO" ? item : { ...item, status: "CANCELADO" },
-        ),
-        eventos: [...pedido.eventos, evento],
-    }
-
-    // Registrar auditoria separada do PedidoEvento
-    const resultadoAuditoria = await actionRegistrarAuditoria({
-        modulo: "PEDIDOS",
-        acao: "CANCELADO",
-        entidadeId: pedido.id,
-        descricao: `Pedido #${pedido.numero} cancelado.`,
-        motivo: motivo.trim(),
-    })
-    if (!resultadoAuditoria.ok) {
-        console.error("Falha ao registrar auditoria:", resultadoAuditoria.error)
-    }
-
-    return { ok: true, pedido: pedidoCancelado }
+/**
+ * Só o supervisor/admin que iniciou a separação (ou outro supervisor/admin)
+ * pode continuar mexendo num pedido travado por separação.
+ */
+export function podeOperarSeparacao(pedido: Pedido, usuario: UsuarioBasico): boolean {
+    if (!pedido.separadorId) return true
+    if (pedido.separadorId === usuario.id) return true
+    return isSupervisorOuAdmin(usuario)
 }
 
 // Mesmo critério de "atrasado" do Dashboard (Módulo 3, seção 23): RESERVADO

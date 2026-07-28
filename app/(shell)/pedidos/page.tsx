@@ -3,14 +3,14 @@
 import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useCurrentUser } from "@/lib/auth-context"
-import { MOCK_PEDIDOS } from "@/lib/mock-pedidos"
 import { MOCK_CLIENTES } from "@/lib/mock-clientes"
 import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
 import { DataTable, type DataTableColumn, type DataTableSort } from "@/components/ui/data-table"
 import { PedidoStatusBadge } from "@/components/status-badges"
 import { Button } from "@/components/ui/button"
 import { CancelarPedidoDialog } from "@/components/pedidos/cancelar-pedido-dialog"
-import { podeCancelarPedido, cancelarPedido, isPedidoAtrasado, formatTempoNoStatus } from "@/lib/pedidos"
+import { podeCancelarPedido, isPedidoAtrasado, formatTempoNoStatus } from "@/lib/pedidos"
+import { usePedidosStore } from "@/lib/pedidos-store"
 import type { Pedido, StatusPedido } from "@/types/domain"
 import { useToast } from "@/components/ui/simple-toast"
 
@@ -41,6 +41,9 @@ export default function PedidosPage() {
   const currentUser = useCurrentUser()
   const router = useRouter()
   const { showToast, Toaster } = useToast()
+  const cancelarPedido = usePedidosStore((s) => s.cancelarPedido)
+  const carregarPedidos = usePedidosStore((s) => s.carregarPedidos)
+  const pedidosStore = usePedidosStore((s) => s.pedidos)
 
   const isVendedor = currentUser.role === "OPERADOR" && currentUser.funcao === "VENDAS"
 
@@ -52,9 +55,19 @@ export default function PedidosPage() {
   const [dataFim, setDataFim] = useState("")
   const [vendedorFiltro, setVendedorFiltro] = useState<string>("")
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
-  const [pedidos, setPedidos] = useState<Pedido[]>(MOCK_PEDIDOS)
+  const [pedidos, setPedidos] = useState<Pedido[]>(pedidosStore)
   const [pedidoParaCancelar, setPedidoParaCancelar] = useState<Pedido | null>(null)
   const [sort, setSort] = useState<DataTableSort>({ columnId: "criadoEm", direction: "desc" })
+
+  // Carregar pedidos do backend na montagem
+  useEffect(() => {
+    carregarPedidos()
+  }, [carregarPedidos])
+
+  // Sincronizar estado local com store
+  useEffect(() => {
+    setPedidos(pedidosStore)
+  }, [pedidosStore])
 
   // Debounce da busca (300ms)
   useEffect(() => {
@@ -153,16 +166,13 @@ export default function PedidosPage() {
   }
 
   async function handleConfirmarCancelamento(pedidoId: string, motivo: string) {
-    const pedido = pedidos.find((p) => p.id === pedidoId)
-    if (!pedido) return
-
-    const resultado = await cancelarPedido(pedido, currentUser, motivo)
+    const resultado = await cancelarPedido(pedidoId, motivo)
     if (!resultado.ok) {
-      showToast(resultado.error, "error")
+      showToast(resultado.error || "Erro ao cancelar pedido", "error")
       return
     }
 
-    setPedidos((prev) => prev.map((p) => (p.id === pedidoId ? resultado.pedido : p)))
+    setPedidos((prev) => prev.map((p) => (p.id === pedidoId ? resultado.data! : p)))
     setPedidoParaCancelar(null)
     showToast("Pedido cancelado.", "success")
   }

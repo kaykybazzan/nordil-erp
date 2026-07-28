@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MOCK_PEDIDOS } from "@/lib/mock-pedidos"
-import { carregarInventarios } from "@/lib/mock-inventario"
+import { actionCarregarInventarios } from "@/lib/actions/estoque"
 import type { Usuario } from "@/types/domain"
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -61,9 +61,13 @@ interface ProdutividadeEtapa {
 
 // ── dados derivados ───────────────────────────────────────────────────────────
 
-function calcularKpis(): KpiData[] {
+async function calcularKpis(): Promise<KpiData[]> {
   const pedidos = MOCK_PEDIDOS
-  const invs = carregarInventarios()
+  const resultadoInventarios = await actionCarregarInventarios()
+  if (!resultadoInventarios.ok || !resultadoInventarios.data) {
+    return []
+  }
+  const invs = resultadoInventarios.data
   const dataHoje = hoje()
 
   const aguardandoSeparacao = pedidos.filter((p) => p.status === "RESERVADO").length
@@ -142,9 +146,13 @@ function calcularKpis(): KpiData[] {
   ]
 }
 
-function calcularAlertas(): AlertaItem[] {
+async function calcularAlertas(): Promise<AlertaItem[]> {
   const pedidos = MOCK_PEDIDOS
-  const invs = carregarInventarios()
+  const resultadoInventarios = await actionCarregarInventarios()
+  if (!resultadoInventarios.ok || !resultadoInventarios.data) {
+    return []
+  }
+  const invs = resultadoInventarios.data
   const alertas: AlertaItem[] = []
 
   // Pedidos com pendência crítica
@@ -432,16 +440,24 @@ interface DashboardScreenProps {
 export function DashboardScreen({ usuario }: DashboardScreenProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [kpis, setKpis] = useState<KpiData[]>([])
+  const [alertas, setAlertas] = useState<AlertaItem[]>([])
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 700)
+    const t = setTimeout(async () => {
+      const [kpisData, alertasData] = await Promise.all([
+        calcularKpis(),
+        calcularAlertas(),
+      ])
+      setKpis(kpisData)
+      setAlertas(alertasData)
+      setLoading(false)
+    }, 700)
     return () => clearTimeout(t)
   }, [])
 
   const isSupervisor = usuario?.role === "SUPERVISOR"
 
-  const kpis = calcularKpis()
-  const alertas = calcularAlertas()
   const alertasVisiveis = alertas.slice(0, 5)
   const alertasExtras = alertas.length - 5
 

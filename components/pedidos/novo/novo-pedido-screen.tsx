@@ -114,11 +114,10 @@ export function NovoPedidoScreen() {
 
     const itensValidos = itens.filter((i) => i.produtoId && parseFloat(i.quantidade) > 0)
 
-    const pedido = criarPedido({
+    const resultado = await criarPedido({
       clienteId,
       endereco,
       observacao: observacao.trim() || undefined,
-      usuario: currentUser,
       itens: itensValidos.map((i) => {
         const produto = MOCK_PRODUTOS.find((p) => p.id === i.produtoId)!
         return {
@@ -131,6 +130,18 @@ export function NovoPedidoScreen() {
     })
 
     setSubmitting(false)
+
+    if (!resultado.ok) {
+      showToast(resultado.error || "Erro ao criar pedido")
+      return
+    }
+
+    const pedido = resultado.data
+    if (!pedido) {
+      showToast("Erro ao criar pedido")
+      return
+    }
+
     showToast(
       pedido.status === "CRIADO"
         ? "Pedido criado, mas sem estoque disponível para reserva."

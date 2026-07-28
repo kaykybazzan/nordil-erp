@@ -203,7 +203,7 @@ export default function EstoqueInventarioPage() {
     setSubmitting(true)
     setFormError(null)
 
-    const resultado = inventarioStore.abrirInventario({
+    const resultado = await inventarioStore.abrirInventario({
       tipoEscopo,
       recorte,
       listaManualProdutoIds: tipoEscopo === "LISTA_MANUAL" ? listaManualProdutoIds : undefined,

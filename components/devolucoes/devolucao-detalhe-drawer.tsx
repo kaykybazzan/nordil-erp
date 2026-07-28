@@ -4,10 +4,10 @@ import { useEffect, useState } from "react"
 import { useCurrentUser } from "@/lib/auth-context"
 import { useDevolucoesStore } from "@/lib/devolucoes-store"
 import { usePedidosStore } from "@/lib/pedidos-store"
+import { useClientesStore } from "@/lib/clientes-store"
+import { useUsuariosStore } from "@/lib/usuarios-store"
+import { useProdutosStore } from "@/lib/produtos-store"
 import { podeGerenciarDevolucao } from "@/lib/policies"
-import { MOCK_CLIENTES } from "@/lib/mock-clientes"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
-import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
 import { Drawer } from "@/components/ui/drawer"
 import { Modal } from "@/components/ui/modal"
 import { cn } from "@/lib/utils"
@@ -55,7 +55,10 @@ const formatarDataHora = (iso: string) =>
 export function DevolucaoDetalheDrawer({ open, devolucao, onOpenChange }: DevolucaoDetalheDrawerProps) {
   const currentUser = useCurrentUser()
   const { confirmarDevolucao, cancelarDevolucao } = useDevolucoesStore()
-  const pedidosStore = usePedidosStore()
+  const pedidosStore = usePedidosStore((s) => s.pedidos)
+  const clientesStore = useClientesStore((s) => s.clientes)
+  const usuariosStore = useUsuariosStore((s) => s.usuarios)
+  const produtosStore = useProdutosStore((s) => s.produtos)
 
   const [modoConfirmacao, setModoConfirmacao] = useState(false)
   const [itensConfirmacao, setItensConfirmacao] = useState<ItemConfirmacao[]>([])
@@ -80,11 +83,11 @@ export function DevolucaoDetalheDrawer({ open, devolucao, onOpenChange }: Devolu
 
   if (!devolucao) return null
 
-  const pedido = pedidosStore.pedidos.find((p) => p.id === devolucao!.pedidoId)
-  const cliente = pedido ? MOCK_CLIENTES.find((c) => c.id === pedido.clienteId) : null
-  const solicitadoPor = MOCK_USUARIOS.find((u) => u.id === devolucao!.solicitadoPor)
-  const confirmadoPor = devolucao!.confirmadoPor ? MOCK_USUARIOS.find((u) => u.id === devolucao!.confirmadoPor) : null
-  const canceladoPor = devolucao!.canceladoPor ? MOCK_USUARIOS.find((u) => u.id === devolucao!.canceladoPor) : null
+  const pedido = pedidosStore.find((p: any) => p.id === devolucao!.pedidoId)
+  const cliente = pedido ? clientesStore.find((c: any) => c.id === pedido.clienteId) : null
+  const solicitadoPor = usuariosStore.find((u: any) => u.id === devolucao!.solicitadoPor)
+  const confirmadoPor = devolucao!.confirmadoPor ? usuariosStore.find((u: any) => u.id === devolucao!.confirmadoPor) : null
+  const canceladoPor = devolucao!.canceladoPor ? usuariosStore.find((u: any) => u.id === devolucao!.canceladoPor) : null
 
   const isSolicitada = devolucao!.status === "SOLICITADA"
 
@@ -150,7 +153,7 @@ export function DevolucaoDetalheDrawer({ open, devolucao, onOpenChange }: Devolu
     setSubmitting(true)
     setFormError(null)
 
-    const resultado = confirmarDevolucao(
+    const resultado = await confirmarDevolucao(
       devolucao!.id,
       {
         itens: itensConfirmacao.map((item) => ({
@@ -159,7 +162,6 @@ export function DevolucaoDetalheDrawer({ open, devolucao, onOpenChange }: Devolu
           observacaoAjuste: item.observacaoAjuste || undefined,
         })),
       },
-      currentUser
     )
 
     setSubmitting(false)
@@ -181,7 +183,7 @@ export function DevolucaoDetalheDrawer({ open, devolucao, onOpenChange }: Devolu
     setSubmitting(true)
     setFormError(null)
 
-    const resultado = cancelarDevolucao(devolucao!.id, currentUser)
+    const resultado = await cancelarDevolucao(devolucao!.id)
 
     setSubmitting(false)
 
@@ -280,7 +282,7 @@ export function DevolucaoDetalheDrawer({ open, devolucao, onOpenChange }: Devolu
             <h3 className="mb-2 text-xs font-semibold uppercase text-foreground">Itens da devolução</h3>
             <div className="flex flex-col gap-2">
               {devolucao.itens.map((item) => {
-                const produto = MOCK_PRODUTOS.find((p) => p.id === item.produtoId)
+                const produto = produtosStore.find((p: any) => p.id === item.produtoId)
                 const itemConfirmacao = itensConfirmacao.find((ic) => ic.itemPedidoId === item.itemPedidoId)
 
                 return (

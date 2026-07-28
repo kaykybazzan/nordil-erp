@@ -48,18 +48,26 @@ export function ExpedicaoScreen() {
     (p) => p.status === "CONFERIDO" || p.status === "EXPEDIDO",
   )
 
-  function expedir(id: string) {
+  async function expedir(id: string) {
     const transp = transportadoras[id]?.trim()
     if (!transp) {
       showToast("Informe a transportadora antes de expedir.")
       return
     }
-    expedirPedido(id, currentUser, transp)
+    const resultado = await expedirPedido(id, transp)
+    if (!resultado.ok) {
+      showToast(resultado.error || "Erro ao expedir pedido")
+      return
+    }
     showToast("Pedido expedido com sucesso.")
   }
 
-  function marcarEntregueHandler(id: string) {
-    marcarEntregue(id, currentUser)
+  async function marcarEntregueHandler(id: string) {
+    const resultado = await marcarEntregue(id)
+    if (!resultado.ok) {
+      showToast(resultado.error || "Erro ao marcar entregue")
+      return
+    }
     showToast("Entrega confirmada.")
   }
 

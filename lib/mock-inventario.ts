@@ -1,8 +1,6 @@
-"use client"
-
 import type { InventarioEstoque, Produto } from "@/types/domain"
-import { MOCK_PRODUTOS } from "./mock-produtos"
-import { registrarMovimentacao, calcularReservado } from "./estoque-ledger"
+import { prisma } from "./db"
+import { calcularReservado } from "./estoque-ledger"
 
 /**
  * Categorias do catálogo — usadas no filtro da tela de estoque.
@@ -60,43 +58,6 @@ export const ESTOQUE_MINIMO_MAP: Record<string, number> = {
   "prd-008": 10,
 }
 
-/**
- * Inicializa o ledger de estoque com as reservas mockadas.
- * Isso substitui o RESERVADO_MAP estático, mantendo os mesmos valores.
- */
-function inicializarLedgerMock() {
-  const reservasIniciais: Record<string, number> = {
-    "prd-001": 5,
-    "prd-002": 2,
-    "prd-003": 30,
-    "prd-004": 8,
-    "prd-005": 100,
-    "prd-006": 10,
-    "prd-007": 20,
-    "prd-008": 2,
-  }
-
-  const dataHoraBase = new Date("2026-07-01T09:00:00-03:00").toISOString()
-
-  Object.entries(reservasIniciais).forEach(([produtoId, quantidade], index) => {
-    const produto = MOCK_PRODUTOS.find((p) => p.id === produtoId)
-    if (!produto) return
-
-    registrarMovimentacao({
-      id: `mov-reserva-${index + 1}`,
-      empresaId: produto.empresaId,
-      produtoId,
-      tipo: "RESERVA",
-      quantidade,
-      pedidoId: `ped-mock-${index + 1}`,
-      dataHora: dataHoraBase,
-      usuarioId: "usr-001",
-    })
-  })
-}
-
-// Inicializa o ledger na primeira importação
-inicializarLedgerMock()
 
 /**
  * Retorna a categoria de um produto pelo ID.
@@ -119,12 +80,12 @@ export function obterFornecedorProduto(produtoId: string): string {
  * Disponível = max(0, estoqueFisico - reservado)
  * Nunca exibe número negativo.
  */
-export function calcularInventario(
+export async function calcularInventario(
   produto: Produto,
   ultimaMovimentacao: string = new Date().toISOString()
-): InventarioEstoque {
+): Promise<InventarioEstoque> {
   const estoqueFisico = produto.estoqueAtual
-  const reservado = calcularReservado(produto.id, produto.empresaId)
+  const reservado = await calcularReservado(produto.id, produto.empresaId)
   const estoqueMinimo = ESTOQUE_MINIMO_MAP[produto.id] || 10
   const disponivel = Math.max(0, estoqueFisico - reservado)
 
@@ -161,25 +122,47 @@ export function calcularStatusEstoque(
  * Carrega todos os inventários agregados.
  * Em produção, viria do backend com paginação e filtros aplicados lá.
  */
-export function carregarInventarios(): (InventarioEstoque & {
+export async function carregarInventarios(empresaId: string): Promise<(InventarioEstoque & {
   produto: Produto
   categoria: Categoria
   fornecedor: string
   status: InventarioStatus
-})[] {
-  return MOCK_PRODUTOS.map((produto) => {
-    const inv = calcularInventario(produto)
+})[]> {
+  const produtos = await prisma.produto.findMany({
+    where: {
+      empresaId,
+    },
+    orderBy: { createdAt: "desc" },
+  })
+
+  const inventarios = []
+  for (const produto of produtos) {
+    const produtoFormatado: Produto = {
+      id: produto.id,
+      empresaId: produto.empresaId,
+      skuInterno: produto.skuInterno,
+      referenciaComercial: produto.referenciaComercial ?? undefined,
+      codigoBarras: produto.codigoBarras ?? undefined,
+      nome: produto.nome,
+      marca: produto.marca,
+      unidadeMedida: produto.unidadeMedida as "UN" | "M" | "KG" | "CX",
+      permiteFracionado: produto.permiteFracionado,
+      custo: Number(produto.custo),
+      precoVenda: Number(produto.precoVenda),
+      status: produto.status as "ativo" | "inativo",
+      estoqueAtual: produto.estoqueAtual,
+      corredor: produto.corredor ?? undefined,
+    }
+
+    const inv = await calcularInventario(produtoFormatado)
     const status = calcularStatusEstoque(inv.disponivel, inv.estoqueMinimo)
-    return {
+    inventarios.push({
       ...inv,
-      produto,
+      produto: produtoFormatado,
       categoria: obterCategoriaProduto(produto.id),
       fornecedor: obterFornecedorProduto(produto.id),
       status,
-    }
-  })
+    })
+  }
+  return inventarios
 }
-
-// Compatibilidade com quem espera um array pronto (ex: dashboard/page.tsx),
-// em vez de chamar carregarInventarios() toda vez.
-export const MOCK_INVENTARIO = carregarInventarios()

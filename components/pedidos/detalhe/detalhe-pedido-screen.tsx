@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, MapPin, FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { MOCK_PEDIDOS } from "@/lib/mock-pedidos"
-import { MOCK_CLIENTES } from "@/lib/mock-clientes"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
-import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
+import { usePedidosStore } from "@/lib/pedidos-store"
+import { useProdutosStore } from "@/lib/produtos-store"
+import { useClientesStore } from "@/lib/clientes-store"
+import { useUsuariosStore } from "@/lib/usuarios-store"
 import { useCurrentUser } from "@/lib/auth-context"
 import { podeAcessarDevolucoes } from "@/lib/policies"
 import { StatusBadgePedido } from "@/components/pedidos/shared/status-badge"
@@ -31,12 +31,14 @@ const ITEM_STATUS_LABEL: Record<StatusItemPedido, string> = {
   PENDENTE: "Pendente",
   PENDENTE_ESTOQUE: "Sem estoque",
   SEPARADO: "Separado",
+  EXPEDIDO: "Expedido",
   CANCELADO: "Cancelado",
 }
 const ITEM_STATUS_COLOR: Record<StatusItemPedido, string> = {
   PENDENTE: "text-muted-foreground bg-muted/60",
   PENDENTE_ESTOQUE: "text-[hsl(var(--warning))] bg-[hsl(var(--warning))]/10",
   SEPARADO: "text-[hsl(var(--success))] bg-[hsl(var(--success))]/10",
+  EXPEDIDO: "text-[hsl(var(--info))] bg-[hsl(var(--info))]/10",
   CANCELADO: "text-destructive bg-destructive/10",
 }
 
@@ -58,6 +60,17 @@ export function DetalhePedidoScreen({ pedidoId }: DetalhePedidoScreenProps) {
   const [devolucaoDrawerAberto, setDevolucaoDrawerAberto] = useState(false)
   const toastTimer = useRef<number | null>(null)
 
+  const pedidosStore = usePedidosStore((s) => s.pedidos)
+  const carregarPedidos = usePedidosStore((s) => s.carregarPedidos)
+
+  const produtosStore = useProdutosStore((s) => s.produtos)
+  const carregarProdutos = useProdutosStore((s) => s.carregarProdutos)
+
+  const clientesStore = useClientesStore((s) => s.clientes)
+  const carregarClientes = useClientesStore((s) => s.carregarClientes)
+
+  const usuariosStore = useUsuariosStore((s) => s.usuarios)
+
   function showToast(msg: string) {
     if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast(msg)
@@ -65,14 +78,19 @@ export function DetalhePedidoScreen({ pedidoId }: DetalhePedidoScreenProps) {
   }
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      const found = MOCK_PEDIDOS.find((p) => p.id === pedidoId)
+    const t = setTimeout(async () => {
+      await Promise.all([
+        carregarPedidos(),
+        carregarProdutos(),
+        carregarClientes(),
+      ])
+      const found = pedidosStore.find((p) => p.id === pedidoId)
       if (found) setPedido({ ...found })
       else setNotFound(true)
       setLoading(false)
     }, 700)
     return () => clearTimeout(t)
-  }, [pedidoId])
+  }, [carregarPedidos, carregarProdutos, carregarClientes, pedidosStore, pedidoId])
 
   function handleAprovar() {
     if (!pedido) return
@@ -124,8 +142,8 @@ export function DetalhePedidoScreen({ pedidoId }: DetalhePedidoScreenProps) {
     )
   }
 
-  const cliente = MOCK_CLIENTES.find((c) => c.id === pedido.clienteId)
-  const vendedor = MOCK_USUARIOS.find((u) => u.id === pedido.vendedorId)
+  const cliente = clientesStore.find((c) => c.id === pedido.clienteId)
+  const vendedor = usuariosStore.find((u) => u.id === pedido.vendedorId)
 
   const subtotal = pedido.itens.reduce(
     (acc, item) => acc + item.precoUnitario * item.quantidade * (1 - item.desconto / 100),
@@ -228,7 +246,7 @@ export function DetalhePedidoScreen({ pedidoId }: DetalhePedidoScreenProps) {
             </thead>
             <tbody>
               {pedido.itens.map((item) => {
-                const produto = MOCK_PRODUTOS.find((p) => p.id === item.produtoId)
+                const produto = produtosStore.find((p) => p.id === item.produtoId)
                 const subtotalItem =
                   item.precoUnitario * item.quantidade * (1 - item.desconto / 100)
                 return (

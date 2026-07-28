@@ -1,12 +1,13 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useCurrentUser } from "@/lib/auth-context"
 import { useDevolucoesStore } from "@/lib/devolucoes-store"
 import { usePedidosStore } from "@/lib/pedidos-store"
+import { useClientesStore } from "@/lib/clientes-store"
+import { useUsuariosStore } from "@/lib/usuarios-store"
+import { useProdutosStore } from "@/lib/produtos-store"
 import { podeAcessarDevolucoes, podeGerenciarDevolucao } from "@/lib/policies"
-import { MOCK_CLIENTES } from "@/lib/mock-clientes"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
 import type { StatusDevolucao, MotivoDevolucao, Devolucao } from "@/types/domain"
 import { PeriodoFiltro, periodoUltimos30Dias } from "@/components/relatorios/periodo-filtro"
 import { Autocomplete } from "@/components/ui/autocomplete"
@@ -54,7 +55,13 @@ type DevolucaoComDados = Devolucao & {
 export default function DevolucoesPage() {
   const currentUser = useCurrentUser()
   const devolucoesStore = useDevolucoesStore()
-  const pedidosStore = usePedidosStore()
+  const pedidosStore = usePedidosStore((s) => s.pedidos)
+  const carregarPedidos = usePedidosStore((s) => s.carregarPedidos)
+  const clientesStore = useClientesStore((s) => s.clientes)
+  const carregarClientes = useClientesStore((s) => s.carregarClientes)
+  const usuariosStore = useUsuariosStore((s) => s.usuarios)
+  const carregarProdutos = useProdutosStore((s) => s.carregarProdutos)
+  const carregarDevolucoes = useDevolucoesStore((s) => s.carregarDevolucoes)
 
   const [periodo, setPeriodo] = useState(periodoUltimos30Dias())
   const [status, setStatus] = useState<StatusDevolucao | "">("")
@@ -69,13 +76,26 @@ export default function DevolucoesPage() {
 
   const podeGerenciar = podeGerenciarDevolucao(currentUser)
 
+  // Carregar dados no mount
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      await Promise.all([
+        carregarPedidos(),
+        carregarClientes(),
+        carregarProdutos(),
+        carregarDevolucoes(),
+      ])
+    }, 700)
+    return () => clearTimeout(t)
+  }, [carregarPedidos, carregarClientes, carregarProdutos, carregarDevolucoes])
+
   const clienteOptions = useMemo(
     () =>
-      MOCK_CLIENTES.filter((c) => c.empresaId === currentUser.empresaId).map((c) => ({
+      clientesStore.filter((c: any) => c.empresaId === currentUser.empresaId).map((c: any) => ({
         value: c.id,
         label: c.nome,
       })),
-    [currentUser.empresaId],
+    [clientesStore, currentUser.empresaId],
   )
 
   const devolucoesComDados = useMemo(() => {
@@ -99,22 +119,22 @@ export default function DevolucoesPage() {
 
         // Filter by cliente (via pedido)
         if (clienteId) {
-          const pedido = pedidosStore.pedidos.find((p) => p.id === d.pedidoId)
+          const pedido = pedidosStore.find((p: any) => p.id === d.pedidoId)
           if (!pedido || pedido.clienteId !== clienteId) return false
         }
 
         // Filter by numeroPedido
         if (numeroPedido) {
-          const pedido = pedidosStore.pedidos.find((p) => p.id === d.pedidoId)
+          const pedido = pedidosStore.find((p: any) => p.id === d.pedidoId)
           if (!pedido || !pedido.numero.toString().includes(numeroPedido)) return false
         }
 
         return true
       })
       .map((d) => {
-        const pedido = pedidosStore.pedidos.find((p) => p.id === d.pedidoId)
-        const cliente = pedido ? MOCK_CLIENTES.find((c) => c.id === pedido.clienteId) : null
-        const usuario = MOCK_USUARIOS.find((u) => u.id === d.solicitadoPor)
+        const pedido = pedidosStore.find((p: any) => p.id === d.pedidoId)
+        const cliente = pedido ? clientesStore.find((c: any) => c.id === pedido.clienteId) : null
+        const usuario = usuariosStore.find((u: any) => u.id === d.solicitadoPor)
 
         return {
           ...d,
@@ -131,7 +151,9 @@ export default function DevolucoesPage() {
     periodoInvalido,
     clienteId,
     numeroPedido,
-    pedidosStore.pedidos,
+    pedidosStore,
+    clientesStore,
+    usuariosStore,
   ])
 
   const tabelaOrdenada = useMemo(() => {

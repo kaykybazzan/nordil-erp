@@ -1,5 +1,5 @@
 import type { Produto } from "@/types/domain"
-import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
+import { prisma } from "@/lib/db"
 import { obterMovimentacoes } from "@/lib/estoque-ledger"
 import { obterCategoriaProduto, ESTOQUE_MINIMO_MAP, calcularInventario } from "@/lib/mock-inventario"
 import { diasDesdeUltimaMovimentacao } from "@/lib/relatorios-utils"
@@ -40,40 +40,66 @@ export interface LinhaTabelaEstoque {
  * Nota: Usa custo × saldo para valor em estoque.
  * Não há tipo "DIVERGENCIA" em TipoEstoqueMovimentacao (só RESERVA e LIBERACAO_RESERVA).
  */
-export function calcularIndicadoresEstoque(
+export async function calcularIndicadoresEstoque(
   empresaId: string,
   filtros?: FiltrosEstoque
-): { indicadores: IndicadoresEstoque; tabela: LinhaTabelaEstoque[] } {
+): Promise<{ indicadores: IndicadoresEstoque; tabela: LinhaTabelaEstoque[] }> {
   const diasSemMovimentacaoMin = filtros?.diasSemMovimentacaoMin ?? 30
   const limiteParado = 60 // dias sem movimentação para considerar "Parado"
 
-  // Filtra produtos por empresaId
-  const produtosFiltrados = MOCK_PRODUTOS.filter((produto) => {
-    if (produto.empresaId !== empresaId) return false
-    if (filtros?.produtoId && produto.id !== filtros.produtoId) return false
-    if (filtros?.categoriaId) {
-      const categoria = obterCategoriaProduto(produto.id)
-      if (categoria !== filtros.categoriaId) return false
-    }
-    return produto.status === "ativo"
+  // Filtra produtos por empresaId usando Prisma
+  const produtosPrisma = await prisma.produto.findMany({
+    where: {
+      empresaId,
+      ...(filtros?.produtoId ? { id: filtros.produtoId } : {}),
+      status: "ativo",
+    },
   })
 
+  // Formata produtos para o tipo domain (converte null para undefined)
+  const produtosFiltrados = produtosPrisma.map((p) => ({
+    id: p.id,
+    empresaId: p.empresaId,
+    skuInterno: p.skuInterno,
+    referenciaComercial: p.referenciaComercial ?? undefined,
+    codigoBarras: p.codigoBarras ?? undefined,
+    nome: p.nome,
+    marca: p.marca,
+    unidadeMedida: p.unidadeMedida as "UN" | "M" | "KG" | "CX",
+    permiteFracionado: p.permiteFracionado,
+    custo: Number(p.custo),
+    precoVenda: Number(p.precoVenda),
+    status: p.status as "ativo" | "inativo",
+    estoqueAtual: p.estoqueAtual,
+    corredor: p.corredor ?? undefined,
+  }))
+
   // Calcula inventário para cada produto
-  const inventarios = produtosFiltrados.map((produto) => calcularInventario(produto))
+  const inventarios = []
+  for (const produto of produtosFiltrados) {
+    inventarios.push(await calcularInventario(produto))
+  }
 
   // Busca movimentações para calcular giro
-  const todasMovimentacoes = obterMovimentacoes()
+  const todasMovimentacoes = await obterMovimentacoes(empresaId)
   const data30DiasAtras = new Date()
   data30DiasAtras.setDate(data30DiasAtras.getDate() - 30)
 
+  // Monta Map por id para busca eficiente
+  const produtosMap = new Map(produtosFiltrados.map((p) => [p.id, p]))
+
   // Gera dados da tabela
-  const tabela: LinhaTabelaEstoque[] = inventarios.map((inv) => {
-    const produto = MOCK_PRODUTOS.find((p) => p.id === inv.produtoId)!
+  const tabela: LinhaTabelaEstoque[] = []
+  for (const inv of inventarios) {
+    const produto = produtosMap.get(inv.produtoId)
+    if (!produto) {
+      continue
+    }
     const categoria = obterCategoriaProduto(produto.id)
     const estoqueMinimo = ESTOQUE_MINIMO_MAP[produto.id] || 10
 
-    // Valor em estoque (usa custo)
-    const valorEmEstoque = inv.estoqueFisico * produto.custo
+    // Valor em estoque (usa custo real)
+    const valorEmEstoque = inv.estoqueFisico * Number(produto.custo)
 
     // Calcula giro: saída nos últimos 30 dias ÷ saldo médio
     // Saída = LIBERACAO_RESERVA (liberação de reserva = saída de estoque)
@@ -82,7 +108,7 @@ export function calcularIndicadoresEstoque(
       const dataMov = new Date(m.dataHora)
       return dataMov >= data30DiasAtras && m.tipo === "LIBERACAO_RESERVA"
     })
-    const saida30Dias = movimentacoes30Dias.reduce((acc, m) => acc + m.quantidade, 0)
+    const saida30Dias = movimentacoes30Dias.reduce((acc, m) => acc + Number(m.quantidade), 0)
     const saldoMedio = inv.estoqueFisico // simplificação: usa saldo atual como saldo médio
     const giro = saldoMedio > 0 ? saida30Dias / saldoMedio : null
 
@@ -98,7 +124,7 @@ export function calcularIndicadoresEstoque(
       status = "Parado"
     }
 
-    return {
+    tabela.push({
       produto: produto.nome,
       sku: produto.skuInterno,
       categoria,
@@ -109,8 +135,8 @@ export function calcularIndicadoresEstoque(
       giro,
       diasSemMovimentacao,
       status,
-    }
-  })
+    })
+  }
 
   // Ordena por dias sem movimentação, decrescente
   tabela.sort((a, b) => b.diasSemMovimentacao - a.diasSemMovimentacao)

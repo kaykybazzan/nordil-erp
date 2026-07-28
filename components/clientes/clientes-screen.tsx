@@ -12,16 +12,10 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Cliente } from "@/types/domain"
-import {
-  MOCK_CLIENTES,
-  formatDataCadastro,
-  onlyDigits,
-  tipoDocumento,
-} from "@/lib/mock-clientes"
+import { onlyDigits, tipoDocumento } from "@/lib/mock-clientes"
 import { StatusBadge } from "./status-badge"
 import { ClienteDrawer, type SaveResult } from "./cliente-drawer"
-import { actionRegistrarAuditoria } from "@/lib/actions/auditoria"
-import { useCurrentUser } from "@/lib/auth-context"
+import { useClientesStore } from "@/lib/clientes-store"
 
 type StatusFiltro = "todos" | "ativo" | "bloqueado"
 
@@ -34,9 +28,13 @@ const FILTRO_LABEL: Record<StatusFiltro, string> = {
 }
 
 export function ClientesScreen() {
-  const currentUser = useCurrentUser()
-  const [clientes, setClientes] = useState<Cliente[]>([])
-  const [loading, setLoading] = useState(true)
+  const clientesStore = useClientesStore()
+  const clientes = clientesStore.clientes
+  const loading = clientesStore.loading
+  const error = clientesStore.error
+  const carregarClientes = clientesStore.carregarClientes
+  const criarCliente = clientesStore.criarCliente
+  const atualizarCliente = clientesStore.atualizarCliente
   const [busca, setBusca] = useState("")
   const [buscaDebounced, setBuscaDebounced] = useState("")
   const [filtro, setFiltro] = useState<StatusFiltro>("todos")
@@ -49,14 +47,10 @@ export function ClientesScreen() {
   const searchRef = useRef<HTMLInputElement>(null)
   const toastTimer = useRef<number | null>(null)
 
-  // Carrega dados iniciais (simula skeleton).
+  // Carrega dados iniciais.
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      setClientes(MOCK_CLIENTES)
-      setLoading(false)
-    }, 700)
-    return () => window.clearTimeout(t)
-  }, [])
+    carregarClientes()
+  }, [carregarClientes])
 
   // Debounce da busca.
   useEffect(() => {
@@ -126,77 +120,18 @@ export function ClientesScreen() {
 
   const salvarCliente = useCallback(
     async (payload: Cliente): Promise<SaveResult> => {
-      // Simula latência de rede.
-      await new Promise((r) => setTimeout(r, 500))
+      const resultado = payload.id
+        ? await atualizarCliente(payload.id, payload)
+        : await criarCliente(payload)
 
-      // Documento duplicado (ignora o próprio registro em edição).
-      const docDigits = onlyDigits(payload.documento)
-      const duplicado = clientes.some(
-        (c) => c.id !== payload.id && onlyDigits(c.documento) === docDigits,
-      )
-      if (duplicado) {
-        return { ok: false, error: "Já existe um cliente com este documento." }
-      }
-
-      // Atualiza in-place (edição) ou insere no topo (novo).
-      setClientes((prev) => {
-        const existe = prev.some((c) => c.id === payload.id)
-        return existe
-          ? prev.map((c) => (c.id === payload.id ? payload : c))
-          : [payload, ...prev]
-      })
-      
-      // Registrar auditoria para edição de cliente
-      const clienteAntigo = clientes.find((c) => c.id === payload.id)
-      if (clienteAntigo) {
-        const camposAlterados: { campo: string; valorAnterior: string; valorNovo: string }[] = []
-        
-        if (clienteAntigo.nome !== payload.nome) {
-          camposAlterados.push({ campo: "nome", valorAnterior: clienteAntigo.nome, valorNovo: payload.nome })
-        }
-        if (clienteAntigo.documento !== payload.documento) {
-          camposAlterados.push({ campo: "documento", valorAnterior: clienteAntigo.documento, valorNovo: payload.documento })
-        }
-        if (clienteAntigo.status !== payload.status) {
-          camposAlterados.push({ campo: "status", valorAnterior: clienteAntigo.status, valorNovo: payload.status })
-        }
-        
-        // Comparar enderecos (simplificado - verifica se a quantidade mudou)
-        if (clienteAntigo.enderecos.length !== payload.enderecos.length) {
-          camposAlterados.push({ 
-            campo: "enderecos", 
-            valorAnterior: `${clienteAntigo.enderecos.length} endereços`, 
-            valorNovo: `${payload.enderecos.length} endereços` 
-          })
-        }
-        
-        if (camposAlterados.length > 0) {
-          actionRegistrarAuditoria({
-            modulo: "CLIENTES",
-            acao: "ATUALIZADO",
-            entidadeId: payload.id,
-            descricao: `Cliente ${payload.nome} atualizado.`,
-            camposAlterados,
-          }).then((result) => {
-            if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
-          })
-        }
+      if (resultado.ok) {
+        showToast("Cliente salvo.")
+        return { ok: true }
       } else {
-        // Novo cliente
-        actionRegistrarAuditoria({
-          modulo: "CLIENTES",
-          acao: "CRIADO",
-          entidadeId: payload.id,
-          descricao: `Cliente ${payload.nome} criado.`,
-        }).then((result) => {
-          if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
-        })
+        return { ok: false, error: resultado.error }
       }
-      
-      showToast("Cliente salvo.")
-      return { ok: true }
     },
-    [clientes, currentUser],
+    [criarCliente, atualizarCliente],
   )
 
   return (
@@ -319,7 +254,7 @@ export function ClientesScreen() {
                     </Td>
                     <Td className="text-right">
                       <span className="font-mono text-[0.82rem] tabular-nums text-muted-foreground">
-                        {formatDataCadastro(c.dataCadastro)}
+                        {new Date(c.dataCadastro).toLocaleDateString("pt-BR")}
                       </span>
                     </Td>
                   </tr>

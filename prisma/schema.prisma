@@ -24,6 +24,12 @@ model Empresa {
 
   usuarios    Usuario[]
   auditorias  Auditoria[]
+  clientes    Cliente[]
+  produtos    Produto[]
+  estoqueMovimentacoes EstoqueMovimentacao[]
+  pedidos     Pedido[]
+  sequenciasNumeracao SequenciaNumeracao[]
+  devolucoes  Devolucao[]
 
   @@map("empresas")
 }
@@ -43,6 +49,9 @@ model Usuario {
   updatedAt          DateTime @updatedAt
 
   empresa            Empresa  @relation(fields: [empresaId], references: [id])
+  pedidosComoVendedor  Pedido[]       @relation("PedidoVendedor")
+  pedidosComoSeparador Pedido[]       @relation("PedidoSeparador")
+  pedidoEventos        PedidoEvento[]
 
   @@index([empresaId])
   @@map("usuarios")
@@ -66,4 +75,210 @@ model Auditoria {
   @@index([empresaId, dataHora])
   @@index([empresaId, modulo])
   @@map("auditorias")
+}
+
+model Endereco {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clienteId   String   @db.Uuid
+  logradouro  String
+  numero      String
+  bairro      String
+  cidade      String
+  uf          String
+  cep         String
+  principal   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
+  @@map("enderecos")
+}
+
+model Cliente {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId    String   @db.Uuid
+  nome         String
+  documento    String
+  status       String   @default("ativo") // ativo | bloqueado
+  dataCadastro DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  empresa      Empresa   @relation(fields: [empresaId], references: [id])
+  enderecos    Endereco[]
+  pedidos      Pedido[]
+
+  @@index([empresaId])
+  @@unique([empresaId, documento])
+  @@map("clientes")
+}
+
+model Produto {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId           String   @db.Uuid
+  skuInterno          String
+  referenciaComercial String?
+  codigoBarras        String?
+  nome                String
+  marca               String
+  unidadeMedida       String   // UN | M | KG | CX
+  permiteFracionado   Boolean  @default(false)
+  custo               Decimal  @db.Decimal(12, 2)
+  precoVenda          Decimal  @db.Decimal(12, 2)
+  status              String   @default("ativo") // ativo | inativo
+  estoqueAtual        Int      @default(0) // fonte de leitura rápida — nunca editável diretamente por formulário, só via EstoqueService (módulo futuro)
+  corredor            String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+  movimentacoes EstoqueMovimentacao[]
+  itensPedido ItemPedido[]
+
+  @@unique([empresaId, skuInterno])
+  @@index([empresaId])
+  @@index([empresaId, corredor])
+  @@map("produtos")
+}
+
+model EstoqueMovimentacao {
+  id          String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  empresaId   String    @db.Uuid
+  produtoId   String    @db.Uuid
+  tipo        String    // RESERVA | LIBERACAO_RESERVA | SAIDA | ENTRADA | ENTRADA_DEVOLUCAO | AJUSTE
+  quantidade  Decimal   @db.Decimal(12, 3)
+  pedidoId    String?   @db.Uuid
+  dataHora    DateTime  @default(now())
+  usuarioId   String    @db.Uuid
+  direcao     String?   // ENTRADA | SAIDA — só usado quando tipo = AJUSTE
+
+  empresa     Empresa   @relation(fields: [empresaId], references: [id])
+  produto     Produto   @relation(fields: [produtoId], references: [id])
+  pedido      Pedido?   @relation(fields: [pedidoId], references: [id])
+
+  @@index([empresaId, produtoId, dataHora])
+  @@index([pedidoId])
+  @@map("estoque_movimentacoes")
+}
+
+model Pedido {
+  id                 String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  empresaId          String   @db.Uuid
+  numero             Int
+  clienteId          String   @db.Uuid
+  vendedorId         String   @db.Uuid
+  separadorId        String?  @db.Uuid
+
+  enderecoLogradouro String
+  enderecoNumero     String
+  enderecoBairro     String
+  enderecoCidade     String
+  enderecoUf         String
+  enderecoCep        String
+  enderecoRefId      String?  @db.Uuid // referência opcional ao Endereco cadastrado, só pra navegação/auditoria — os campos acima são o snapshot, fonte de verdade do pedido
+
+  observacao         String?
+  transportadora      String?
+  status             String   // CRIADO | RESERVADO | EM_SEPARACAO | EM_CONFERENCIA | CONFERIDO | EXPEDIDO | ENTREGUE | CANCELADO
+  pendencia          String   @default("NENHUMA") // NENHUMA | RUPTURA_ESTOQUE | DIVERGENCIA_CONFERENCIA
+  valorTotal         Decimal  @db.Decimal(12, 2)
+  motivoCancelamento String?
+
+  criadoEm           DateTime @default(now())
+  statusAlteradoEm   DateTime @updatedAt
+
+  empresa    Empresa        @relation(fields: [empresaId], references: [id])
+  cliente    Cliente        @relation(fields: [clienteId], references: [id])
+  vendedor   Usuario        @relation("PedidoVendedor", fields: [vendedorId], references: [id])
+  separador  Usuario?       @relation("PedidoSeparador", fields: [separadorId], references: [id])
+  itens      ItemPedido[]
+  eventos    PedidoEvento[]
+  movimentacoes EstoqueMovimentacao[]
+  devolucoes Devolucao[]
+
+  @@unique([empresaId, numero])
+  @@index([empresaId, status])
+  @@map("pedidos")
+}
+
+model ItemPedido {
+  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId      String  @db.Uuid
+  produtoId     String  @db.Uuid
+  quantidade    Decimal @db.Decimal(12, 3)
+  precoUnitario Decimal @db.Decimal(12, 2)
+  desconto      Decimal @default(0) @db.Decimal(5, 2)
+  status        String  // PENDENTE | PENDENTE_ESTOQUE | SEPARADO | CANCELADO
+
+  pedido  Pedido  @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  produto Produto @relation(fields: [produtoId], references: [id])
+  devolucoes ItemDevolucao[]
+
+  @@index([pedidoId])
+  @@map("itens_pedido")
+}
+
+model PedidoEvento {
+  id        String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  pedidoId  String   @db.Uuid
+  tipo      String
+  descricao String
+  dataHora  DateTime @default(now())
+  usuarioId String   @db.Uuid
+
+  pedido  Pedido  @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([pedidoId, dataHora])
+  @@map("pedido_eventos")
+}
+
+model SequenciaNumeracao {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId  String @db.Uuid
+  tipo       String // PEDIDO | NF | OS | INVENTARIO — varchar por convenção do projeto (mesmo padrão de Produto.status, EstoqueMovimentacao.tipo etc.), não enum nativo
+  valorAtual Int    @default(0)
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, tipo])
+  @@map("sequencias_numeracao")
+}
+
+model Devolucao {
+  id                 String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  empresaId          String   @db.Uuid
+  pedidoId           String   @db.Uuid
+  status             String   // SOLICITADA | CONCLUIDA | CANCELADA
+  motivo             String   // avariado | incorreto | defeito | desistencia | excesso | outro
+  motivoDescricao    String?  // texto livre, obrigatório só quando motivo = "outro" (validado na action, não no schema)
+  solicitadoPorId    String   @db.Uuid
+  confirmadoPorId    String?  @db.Uuid
+  canceladoPorId     String?  @db.Uuid
+  criadoEm           DateTime @default(now())
+  statusAlteradoEm   DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+  pedido  Pedido  @relation(fields: [pedidoId], references: [id])
+  itens   ItemDevolucao[]
+
+  @@index([status])
+  @@index([pedidoId])
+  @@map("devolucoes")
+}
+
+model ItemDevolucao {
+  id                    String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  devolucaoId           String   @db.Uuid
+  itemPedidoId          String   @db.Uuid
+  quantidadeSolicitada  Decimal  @db.Decimal(12, 3)
+  quantidadeConfirmada  Decimal? @db.Decimal(12, 3)
+  observacaoAjuste      String?
+
+  devolucao  Devolucao  @relation(fields: [devolucaoId], references: [id])
+  itemPedido ItemPedido @relation(fields: [itemPedidoId], references: [id])
+
+  @@map("itens_devolucao")
 }

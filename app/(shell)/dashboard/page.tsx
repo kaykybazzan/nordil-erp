@@ -16,7 +16,7 @@ import { useCurrentUser } from "@/lib/auth-context"
 import { useKpi } from "@/lib/use-kpi"
 import { MOCK_PEDIDOS } from "@/lib/mock-pedidos"
 import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
-import { MOCK_INVENTARIO } from "@/lib/mock-inventario"
+import { actionCarregarInventarios } from "@/lib/actions/estoque"
 import {
   getAguardandoSeparacao,
   getEmSeparacao,
@@ -40,13 +40,24 @@ export default function DashboardPage() {
   const emSeparacao = useKpi(() => getEmSeparacao(MOCK_PEDIDOS).length, [])
   const atrasados = useKpi(() => getAtrasados(MOCK_PEDIDOS).length, [])
   const abaixoMinimo = useKpi(
-    () => getProdutosAbaixoMinimo(MOCK_PRODUTOS, MOCK_INVENTARIO).length,
+    async () => {
+      const resultado = await actionCarregarInventarios()
+      if (!resultado.ok || !resultado.data) return 0
+      return getProdutosAbaixoMinimo(MOCK_PRODUTOS, resultado.data).length
+    },
     [],
   )
   const entreguesHoje = useKpi(() => getEntreguesHoje(MOCK_PEDIDOS).length, [])
   const canceladosHoje = useKpi(() => getCanceladosHoje(MOCK_PEDIDOS).length, [])
 
-  const alertas = useKpi(() => getAlertas(MOCK_PEDIDOS, MOCK_PRODUTOS, MOCK_INVENTARIO), [])
+  const alertas = useKpi(
+    async () => {
+      const resultado = await actionCarregarInventarios()
+      if (!resultado.ok || !resultado.data) return []
+      return getAlertas(MOCK_PEDIDOS, MOCK_PRODUTOS, resultado.data)
+    },
+    [],
+  )
 
   const gargalo = useKpi(() => getGargalo(MOCK_PEDIDOS), [])
   const produtividade = useKpi(() => getProdutividadePorEtapa(MOCK_PEDIDOS), [])
