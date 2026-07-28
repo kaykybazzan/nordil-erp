@@ -20,6 +20,7 @@ export async function actionAplicarMovimentacao(input: {
   tipo: "RESERVA" | "LIBERACAO_RESERVA" | "SAIDA" | "ENTRADA" | "ENTRADA_DEVOLUCAO" | "AJUSTE"
   quantidade: number
   pedidoId?: string
+  direcao?: "ENTRADA" | "SAIDA"
 }, tx?: any) {
   const session = await auth()
   if (!session?.user?.empresaId) {
@@ -37,6 +38,7 @@ export async function actionAplicarMovimentacao(input: {
       tipo: input.tipo,
       quantidade: input.quantidade,
       pedidoId: input.pedidoId,
+      direcao: input.direcao,
       usuarioId: session.user.id,
     }, tx)
     return { ok: true, data: null }

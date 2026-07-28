@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, CheckCircle2, AlertTriangle, AlertCircle, RefreshCw, User, Search } from "lucide-react"
 import { useCurrentUser } from "@/lib/auth-context"
@@ -54,7 +54,8 @@ const STATUS_ITEM_CONFIG: Record<StatusItemContagem, { label: string; bg: string
   },
 }
 
-export default function InventarioContagemPage({ params }: { params: { id: string } }) {
+export default function InventarioContagemPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const router = useRouter()
   const currentUser = useCurrentUser()
   const inventarioStore = useInventarioContagemStore()
@@ -83,7 +84,7 @@ export default function InventarioContagemPage({ params }: { params: { id: strin
   const estoquistas = MOCK_USUARIOS.filter((u) => u.funcao === "ESTOQUE" && u.status === "ativo")
 
   useEffect(() => {
-    const inv = inventarioStore.inventarios.find((i) => i.id === params.id)
+    const inv = inventarioStore.inventarios.find((i) => i.id === id)
     if (inv) {
       setInventario(inv)
       // Initialize quantidades with current counted values
@@ -96,7 +97,7 @@ export default function InventarioContagemPage({ params }: { params: { id: strin
       setQuantidades(qtds)
     }
     setLoading(false)
-  }, [params.id, inventarioStore.inventarios])
+  }, [id, inventarioStore.inventarios])
 
   const itensFiltrados = useMemo(() => {
     if (!inventario) return []

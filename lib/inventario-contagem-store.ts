@@ -18,7 +18,7 @@ import {
   podeFinalizarInventario,
   podeReatribuirResponsavelInventario,
 } from "./policies"
-import { obterCategoriaProduto, obterFornecedorProduto } from "./mock-inventario"
+import { obterCategoriaProduto, obterFornecedorProduto, ESTOQUE_MINIMO_MAP } from "./mock-inventario"
 
 function gerarId(prefixo: string) {
   return `${prefixo}-${Math.random().toString(36).slice(2, 9)}`
@@ -96,17 +96,7 @@ async function resolverProdutosDoEscopo(
       return produtos.filter((p) => listaManualProdutoIds.includes(p.id))
 
     case "ESTOQUE_BAIXO":
-      // Produtos com estoqueAtual <= estoqueMinimo (usando mapa do mock-inventario)
-      const ESTOQUE_MINIMO_MAP: Record<string, number> = {
-        "prd-001": 20,
-        "prd-002": 5,
-        "prd-003": 100,
-        "prd-004": 50,
-        "prd-005": 500,
-        "prd-006": 50,
-        "prd-007": 50,
-        "prd-008": 10,
-      }
+      // Produtos com estoqueAtual <= estoqueMinimo (usando mapa único do mock-inventario)
       return produtos.filter((p) => p.estoqueAtual <= (ESTOQUE_MINIMO_MAP[p.id] || 10))
 
     case "TODOS_PRODUTOS":
@@ -398,6 +388,7 @@ export const useInventarioContagemStore = create<InventarioContagemState>()(
           produtoId: item.produtoId,
           tipo: "AJUSTE",
           quantidade,
+          direcao,
         })
         if (!resultadoMovimentacao.ok) {
           return { sucesso: false, erro: resultadoMovimentacao.error || "Erro ao registrar movimentação de ajuste." }
