@@ -39,14 +39,13 @@ export function KpiCard({
 
     if (status === "loading") return <KpiCardSkeleton />
 
-    const isActiveAlert = tone !== "default" && value > 0 && status !== "error"
     const effectiveTone: NonNullable<KpiCardProps["tone"]> =
-        status === "error" ? "default" : isActiveAlert ? tone : "default"
+        status === "error" ? "default" : tone
 
     const conteudo = (
         <div
             className={cn(
-                "relative flex items-center justify-between rounded-lg border border-border bg-card p-4 transition-colors",
+                "relative flex h-full flex-col gap-2 rounded-lg border border-border bg-card p-3.5 transition-colors",
                 status !== "error" && "hover:border-foreground/20",
             )}
             onMouseEnter={() => setShowTip(true)}
@@ -54,21 +53,29 @@ export function KpiCard({
             onFocus={() => setShowTip(true)}
             onBlur={() => setShowTip(false)}
         >
-            <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">{label}</span>
+            <div className="flex items-center gap-2.5">
+                <div
+                    className={cn(
+                        "flex size-9 shrink-0 items-center justify-center rounded-lg",
+                        iconToneClasses[effectiveTone],
+                    )}
+                >
+                    {status === "error" ? (
+                        <AlertTriangle className="size-[18px]" />
+                    ) : (
+                        <Icon className="size-[18px]" />
+                    )}
+                </div>
+                <span className="text-xs leading-tight text-muted-foreground text-pretty">{label}</span>
+            </div>
+
+            <div className="mt-auto flex flex-col gap-0.5">
                 {status === "error" ? (
                     <span className="text-2xl font-semibold text-muted-foreground">—</span>
                 ) : (
-                    <span
-                        className={cn(
-                            "text-2xl font-semibold tabular-nums",
-                            effectiveTone === "danger" && "text-destructive",
-                            effectiveTone === "warning" && "text-warning",
-                        )}
-                    >
-                        {value}
-                    </span>
+                    <span className="text-2xl font-semibold tabular-nums text-foreground">{value}</span>
                 )}
+
                 {delta && status === "success" && (
                     <span
                         className={cn(
@@ -86,15 +93,6 @@ export function KpiCard({
                 )}
             </div>
 
-            <div
-                className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-lg",
-                    iconToneClasses[status === "error" ? "default" : effectiveTone],
-                )}
-            >
-                {status === "error" ? <AlertTriangle className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
-            </div>
-
             {showTip && (
                 <div className="absolute bottom-full left-0 z-10 mb-2 w-64 rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md">
                     {status === "error" ? "Não foi possível carregar este indicador." : criterio}
@@ -106,7 +104,7 @@ export function KpiCard({
     return status === "error" ? (
         <div className="cursor-default">{conteudo}</div>
     ) : (
-        <Link href={href} className="block">
+        <Link href={href} className="block h-full">
             {conteudo}
         </Link>
     )
@@ -114,12 +112,12 @@ export function KpiCard({
 
 export function KpiCardSkeleton() {
     return (
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-            <div className="flex flex-col gap-2">
-                <div className="h-3.5 w-24 animate-pulse rounded bg-muted" />
-                <div className="h-7 w-12 animate-pulse rounded bg-muted" />
+        <div className="flex h-full flex-col gap-2 rounded-lg border border-border bg-card p-3.5">
+            <div className="flex items-center gap-2.5">
+                <div className="size-9 shrink-0 animate-pulse rounded-lg bg-muted" />
+                <div className="h-3 w-20 animate-pulse rounded bg-muted" />
             </div>
-            <div className="h-10 w-10 animate-pulse rounded-lg bg-muted" />
+            <div className="mt-auto h-7 w-12 animate-pulse rounded bg-muted" />
         </div>
     )
 }

@@ -26,16 +26,16 @@ export function StatusDonutChart({ dados }: { dados: StatusDistribuicao[] }) {
     }
 
     return (
-        <div className="flex items-center gap-6">
-            <div className="relative h-[180px] w-[180px] shrink-0">
+        <div className="flex h-full items-center gap-5">
+            <div className="relative h-[150px] w-[150px] shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
                             data={dados}
                             dataKey="quantidade"
                             nameKey="label"
-                            innerRadius={58}
-                            outerRadius={80}
+                            innerRadius={48}
+                            outerRadius={68}
                             paddingAngle={2}
                             stroke="none"
                         >
