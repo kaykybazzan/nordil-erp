@@ -12,7 +12,7 @@ interface KpiCardProps {
     criterio: string
     href: string
     icon: LucideIcon
-    tone?: "default" | "info" | "warning" | "success" | "danger"
+    tone?: "default" | "info" | "violet" | "warning" | "success" | "danger" | "slate"
     status?: "loading" | "success" | "error"
     delta?: Delta
 }
@@ -20,9 +20,11 @@ interface KpiCardProps {
 const iconToneClasses: Record<NonNullable<KpiCardProps["tone"]>, string> = {
     default: "bg-muted text-muted-foreground",
     info: "bg-info/10 text-info",
+    violet: "bg-chart-2/10 text-chart-2",
     warning: "bg-warning/10 text-warning",
     success: "bg-success/10 text-success",
     danger: "bg-destructive/10 text-destructive",
+    slate: "bg-chart-5/10 text-chart-5",
 }
 
 export function KpiCard({
@@ -39,14 +41,10 @@ export function KpiCard({
 
     if (status === "loading") return <KpiCardSkeleton />
 
-    const isActiveAlert = tone !== "default" && value > 0 && status !== "error"
-    const effectiveTone: NonNullable<KpiCardProps["tone"]> =
-        status === "error" ? "default" : isActiveAlert ? tone : "default"
-
     const conteudo = (
         <div
             className={cn(
-                "relative flex items-center justify-between rounded-lg border border-border bg-card p-4 transition-colors",
+                "relative flex items-start gap-3 rounded-lg border border-border bg-card p-4 shadow-xs transition-colors",
                 status !== "error" && "hover:border-foreground/20",
             )}
             onMouseEnter={() => setShowTip(true)}
@@ -54,20 +52,21 @@ export function KpiCard({
             onFocus={() => setShowTip(true)}
             onBlur={() => setShowTip(false)}
         >
-            <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">{label}</span>
+            <div
+                className={cn(
+                    "flex size-9 shrink-0 items-center justify-center rounded-lg",
+                    iconToneClasses[status === "error" ? "default" : tone],
+                )}
+            >
+                {status === "error" ? <AlertTriangle className="h-[18px] w-[18px]" /> : <Icon className="h-[18px] w-[18px]" />}
+            </div>
+
+            <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate text-xs font-medium text-muted-foreground">{label}</span>
                 {status === "error" ? (
                     <span className="text-2xl font-semibold text-muted-foreground">—</span>
                 ) : (
-                    <span
-                        className={cn(
-                            "text-2xl font-semibold tabular-nums",
-                            effectiveTone === "danger" && "text-destructive",
-                            effectiveTone === "warning" && "text-warning",
-                        )}
-                    >
-                        {value}
-                    </span>
+                    <span className="text-2xl font-semibold tabular-nums text-foreground">{value}</span>
                 )}
                 {delta && status === "success" && (
                     <span
@@ -84,15 +83,6 @@ export function KpiCard({
                         <span className="font-normal text-muted-foreground">vs ontem</span>
                     </span>
                 )}
-            </div>
-
-            <div
-                className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-lg",
-                    iconToneClasses[status === "error" ? "default" : effectiveTone],
-                )}
-            >
-                {status === "error" ? <AlertTriangle className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
             </div>
 
             {showTip && (
@@ -114,12 +104,12 @@ export function KpiCard({
 
 export function KpiCardSkeleton() {
     return (
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 shadow-xs">
+            <div className="size-9 shrink-0 animate-pulse rounded-lg bg-muted" />
             <div className="flex flex-col gap-2">
                 <div className="h-3.5 w-24 animate-pulse rounded bg-muted" />
                 <div className="h-7 w-12 animate-pulse rounded bg-muted" />
             </div>
-            <div className="h-10 w-10 animate-pulse rounded-lg bg-muted" />
         </div>
     )
 }

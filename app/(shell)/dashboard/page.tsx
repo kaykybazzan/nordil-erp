@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import {
   Clock,
   PackageCheck,
@@ -110,7 +111,7 @@ export default function DashboardPage() {
   return (
       <div className="flex flex-col gap-6">
         {/* KPIs — iguais para Admin e Supervisor */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
           <KpiCard
             label="Aguardando separação"
             value={aguardando.value ?? 0}
@@ -126,7 +127,7 @@ export default function DashboardPage() {
             status={emSeparacao.status}
             href="/pedidos?status=EM_SEPARACAO"
             icon={PackageCheck}
-            tone="info"
+            tone="violet"
             criterio="Pedidos com separação em andamento."
           />
           <KpiCard
@@ -163,7 +164,7 @@ export default function DashboardPage() {
             status={canceladosHoje.status}
             href="/pedidos?status=CANCELADO&periodo=hoje"
             icon={XCircle}
-            tone="warning"
+            tone="slate"
             delta={deltaCancelados}
             criterio="Pedidos cancelados durante o dia de hoje."
           />
@@ -191,17 +192,27 @@ export default function DashboardPage() {
           </div>
 
           <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-              <Bell className="h-4 w-4 text-muted-foreground" />
-              Alertas
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Bell className="h-4 w-4 text-muted-foreground" />
+                Alertas
+              </div>
+              <Link href="/pedidos?atrasado=true" className="text-xs font-medium text-primary hover:underline">
+                Ver todas
+              </Link>
             </div>
             <AlertList alertas={alertas.value ?? []} status={alertas.status} />
           </div>
 
           <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-              <Activity className="h-4 w-4 text-muted-foreground" />
-              Atividade recente
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Activity className="h-4 w-4 text-muted-foreground" />
+                Atividade recente
+              </div>
+              <Link href="/pedidos" className="text-xs font-medium text-primary hover:underline">
+                Ver todas
+              </Link>
             </div>
             {carregandoPedidos ? (
               <div className="flex flex-col gap-3">
