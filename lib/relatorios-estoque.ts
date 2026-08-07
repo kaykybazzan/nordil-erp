@@ -1,7 +1,7 @@
 import type { Produto } from "@/types/domain"
 import { prisma } from "@/lib/db"
 import { obterMovimentacoes } from "@/lib/estoque-ledger"
-import { obterCategoriaProduto, ESTOQUE_MINIMO_MAP, calcularInventario } from "@/lib/mock-inventario"
+import { obterCategoriaProduto, calcularInventario } from "@/lib/mock-inventario"
 import { diasDesdeUltimaMovimentacao } from "@/lib/relatorios-utils"
 
 export interface IndicadoresEstoque {
@@ -72,6 +72,9 @@ export async function calcularIndicadoresEstoque(
     status: p.status as "ativo" | "inativo",
     estoqueAtual: p.estoqueAtual,
     corredor: p.corredor ?? undefined,
+    categoria: p.categoria ?? undefined,
+    fornecedor: p.fornecedor ?? undefined,
+    estoqueMinimo: p.estoqueMinimo,
   }))
 
   // Calcula inventário para cada produto
@@ -95,8 +98,8 @@ export async function calcularIndicadoresEstoque(
     if (!produto) {
       continue
     }
-    const categoria = obterCategoriaProduto(produto.id)
-    const estoqueMinimo = ESTOQUE_MINIMO_MAP[produto.id] || 10
+    const categoria = obterCategoriaProduto(produto)
+    const estoqueMinimo = inv.estoqueMinimo
 
     // Valor em estoque (usa custo real)
     const valorEmEstoque = inv.estoqueFisico * Number(produto.custo)

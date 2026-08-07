@@ -1,12 +1,12 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useCurrentUser } from "@/lib/auth-context"
 import { useKpi } from "@/lib/use-kpi"
 import { actionCalcularIndicadoresMovimentacoes } from "@/lib/actions/estoque"
-import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
-import type { TipoEstoqueMovimentacao } from "@/types/domain"
+import { listarProdutos } from "@/lib/actions/produtos"
+import { actionObterUsuarios } from "@/lib/actions/usuarios"
+import type { TipoEstoqueMovimentacao, Produto } from "@/types/domain"
 import { PeriodoFiltro, periodoUltimos30Dias } from "@/components/relatorios/periodo-filtro"
 import { IndicadorCard } from "@/components/relatorios/indicador-card"
 import { Autocomplete } from "@/components/ui/autocomplete"
@@ -29,26 +29,46 @@ export function MovimentacoesRelatorio() {
     const [operadorId, setOperadorId] = useState<string | null>(null)
     const [visibleCount, setVisibleCount] = useState(20)
     const [sort, setSort] = useState<DataTableSort | null>(null)
+    const [usuarios, setUsuarios] = useState<{ id: string; nome: string; empresaId: string }[]>([])
+    const [produtosEmpresa, setProdutosEmpresa] = useState<Produto[]>([])
+
+    useEffect(() => {
+        actionObterUsuarios().then((resultado) => {
+            if (resultado.ok && resultado.data) {
+                setUsuarios(resultado.data)
+            }
+        })
+    }, [])
+
+    // listarProdutos() já filtra por empresaId no server (via session) — mesma
+    // convenção adotada em EstoqueRelatorio.
+    useEffect(() => {
+        listarProdutos().then((result) => {
+            if (result.ok && result.data) {
+                setProdutosEmpresa(result.data)
+            }
+        })
+    }, [])
 
     const periodoInvalido = periodo.fim !== "" && periodo.inicio !== "" && periodo.fim < periodo.inicio
 
     const produtoOptions = useMemo(
         () =>
-            MOCK_PRODUTOS.filter((p) => p.empresaId === currentUser.empresaId).map((p) => ({
+            produtosEmpresa.map((p) => ({
                 value: p.id,
                 label: p.nome,
                 description: p.skuInterno,
             })),
-        [currentUser.empresaId],
+        [produtosEmpresa],
     )
 
     const operadorOptions = useMemo(
         () =>
-            MOCK_USUARIOS.filter((u) => u.empresaId === currentUser.empresaId).map((u) => ({
+            usuarios.filter((u) => u.empresaId === currentUser.empresaId).map((u) => ({
                 value: u.id,
                 label: u.nome,
             })),
-        [currentUser.empresaId],
+        [usuarios, currentUser.empresaId],
     )
 
     const resultado = useKpi(

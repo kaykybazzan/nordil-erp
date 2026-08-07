@@ -1,11 +1,11 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useCurrentUser } from "@/lib/auth-context"
 import { useKpi } from "@/lib/use-kpi"
 import { calcularIndicadoresPedidos } from "@/lib/relatorios-pedidos"
-import { MOCK_CLIENTES } from "@/lib/mock-clientes"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
+import { listarClientes } from "@/lib/actions/clientes"
+import { actionObterUsuarios } from "@/lib/actions/usuarios"
 import type { StatusPedido } from "@/types/domain"
 import { PeriodoFiltro, periodoUltimos30Dias } from "@/components/relatorios/periodo-filtro"
 import { IndicadorCard } from "@/components/relatorios/indicador-card"
@@ -42,30 +42,49 @@ export function PedidosRelatorio() {
     const [vendedorId, setVendedorId] = useState<string | null>(null)
     const [visibleCount, setVisibleCount] = useState(20)
     const [sort, setSort] = useState<DataTableSort | null>(null)
+    const [usuarios, setUsuarios] = useState<{ id: string; nome: string; empresaId: string; funcao: string }[]>([])
+
+    useEffect(() => {
+        actionObterUsuarios().then((resultado) => {
+            if (resultado.ok && resultado.data) {
+                setUsuarios(resultado.data)
+            }
+        })
+    }, [])
 
     const periodoInvalido = periodo.fim !== "" && periodo.inicio !== "" && periodo.fim < periodo.inicio
 
+    const [clientes, setClientes] = useState<{ id: string; nome: string; empresaId: string }[]>([])
+
+    useEffect(() => {
+        listarClientes().then((resultado) => {
+            if (resultado.ok && resultado.data) {
+                setClientes(resultado.data)
+            }
+        })
+    }, [])
+
     const clienteOptions = useMemo(
         () =>
-            MOCK_CLIENTES.filter((c) => c.empresaId === currentUser.empresaId).map((c) => ({
+            clientes.filter((c) => c.empresaId === currentUser.empresaId).map((c) => ({
                 value: c.id,
                 label: c.nome,
             })),
-        [currentUser.empresaId],
+        [clientes, currentUser.empresaId],
     )
 
     const vendedorOptions = useMemo(
         () =>
-            MOCK_USUARIOS.filter(
+            usuarios.filter(
                 (u) => u.empresaId === currentUser.empresaId && u.funcao === "VENDAS",
             ).map((u) => ({ value: u.id, label: u.nome })),
-        [currentUser.empresaId],
+        [usuarios, currentUser.empresaId],
     )
 
     const resultado = useKpi(
-        () => {
+        async () => {
             if (periodoInvalido) return null
-            return calcularIndicadoresPedidos(
+            return await calcularIndicadoresPedidos(
                 currentUser.empresaId,
                 new Date(periodo.inicio),
                 new Date(periodo.fim),

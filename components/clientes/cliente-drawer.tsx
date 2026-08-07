@@ -21,7 +21,7 @@ import {
   novoEnderecoVazio,
   onlyDigits,
   tipoDocumento,
-} from "@/lib/mock-clientes"
+} from "@/lib/utils/cliente-utils"
 import { useCurrentUser } from "@/lib/auth-context"
 
 export type SaveResult = { ok: true } | { ok: false; error: string }

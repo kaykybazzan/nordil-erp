@@ -62,24 +62,34 @@ export default function ConfiguracoesPage() {
 function ConfiguracoesScreen() {
     const currentUser = useCurrentUser()
     const configuracoes = useConfiguracoesStore((s) => s.configuracoes)
+    const loading = useConfiguracoesStore((s) => s.loading)
+    const error = useConfiguracoesStore((s) => s.error)
+    const carregarConfiguracoes = useConfiguracoesStore((s) => s.carregarConfiguracoes)
     const atualizarRegrasOperacionais = useConfiguracoesStore((s) => s.atualizarRegrasOperacionais)
     const atualizarDadosEmpresa = useConfiguracoesStore((s) => s.atualizarDadosEmpresa)
     const atualizarDeposito = useConfiguracoesStore((s) => s.atualizarDeposito)
     const atualizarSeguranca = useConfiguracoesStore((s) => s.atualizarSeguranca)
 
-    const [loading, setLoading] = useState(true)
     useEffect(() => {
-        const t = window.setTimeout(() => setLoading(false), 500)
-        return () => window.clearTimeout(t)
+        carregarConfiguracoes()
     }, [])
 
     const [abaAtiva, setAbaAtiva] = useState<SecaoId>("regras")
     const [abaPendente, setAbaPendente] = useState<SecaoId | null>(null)
 
-    const [draftRegras, setDraftRegras] = useState(configuracoes.regrasOperacionais)
-    const [draftEmpresa, setDraftEmpresa] = useState(configuracoes.dadosEmpresa)
-    const [draftDeposito, setDraftDeposito] = useState(configuracoes.deposito)
-    const [draftSeguranca, setDraftSeguranca] = useState(configuracoes.seguranca)
+    const [draftRegras, setDraftRegras] = useState(configuracoes?.regrasOperacionais || { permitirAutoConferencia: false, permitirAprovacaoExcepcionalDivergencia: false })
+    const [draftEmpresa, setDraftEmpresa] = useState(configuracoes?.dadosEmpresa || { razaoSocial: "", nomeFantasia: undefined, cnpj: "", email: undefined, telefone: undefined, endereco: undefined })
+    const [draftDeposito, setDraftDeposito] = useState(configuracoes?.deposito || { nome: "", endereco: { logradouro: "", numero: "", bairro: "", cidade: "", uf: "", cep: "" }, responsavel: undefined })
+    const [draftSeguranca, setDraftSeguranca] = useState(configuracoes?.seguranca || { tempoExpiracaoSessaoMinutos: 30, politicaSenhaMinima: "MEDIA" as const, duracaoSenhaTemporariaDias: 7 })
+
+    useEffect(() => {
+        if (configuracoes) {
+            setDraftRegras(configuracoes.regrasOperacionais)
+            setDraftEmpresa(configuracoes.dadosEmpresa)
+            setDraftDeposito(configuracoes.deposito)
+            setDraftSeguranca(configuracoes.seguranca)
+        }
+    }, [configuracoes])
 
     const [salvando, setSalvando] = useState(false)
     const [toast, setToast] = useState<string | null>(null)
@@ -92,20 +102,20 @@ function ConfiguracoesScreen() {
     }
 
     const dirtyRegras = useMemo(
-        () => JSON.stringify(draftRegras) !== JSON.stringify(configuracoes.regrasOperacionais),
-        [draftRegras, configuracoes.regrasOperacionais],
+        () => configuracoes ? JSON.stringify(draftRegras) !== JSON.stringify(configuracoes.regrasOperacionais) : false,
+        [draftRegras, configuracoes?.regrasOperacionais],
     )
     const dirtyEmpresa = useMemo(
-        () => JSON.stringify(draftEmpresa) !== JSON.stringify(configuracoes.dadosEmpresa),
-        [draftEmpresa, configuracoes.dadosEmpresa],
+        () => configuracoes ? JSON.stringify(draftEmpresa) !== JSON.stringify(configuracoes.dadosEmpresa) : false,
+        [draftEmpresa, configuracoes?.dadosEmpresa],
     )
     const dirtyDeposito = useMemo(
-        () => JSON.stringify(draftDeposito) !== JSON.stringify(configuracoes.deposito),
-        [draftDeposito, configuracoes.deposito],
+        () => configuracoes ? JSON.stringify(draftDeposito) !== JSON.stringify(configuracoes.deposito) : false,
+        [draftDeposito, configuracoes?.deposito],
     )
     const dirtySeguranca = useMemo(
-        () => JSON.stringify(draftSeguranca) !== JSON.stringify(configuracoes.seguranca),
-        [draftSeguranca, configuracoes.seguranca],
+        () => configuracoes ? JSON.stringify(draftSeguranca) !== JSON.stringify(configuracoes.seguranca) : false,
+        [draftSeguranca, configuracoes?.seguranca],
     )
 
     const dirtyPorSecao: Record<SecaoId, boolean> = {
@@ -125,6 +135,7 @@ function ConfiguracoesScreen() {
     }
 
     function confirmarDescarte() {
+        if (!configuracoes) return
         switch (abaAtiva) {
             case "regras":
                 setDraftRegras(configuracoes.regrasOperacionais)
@@ -184,23 +195,27 @@ function ConfiguracoesScreen() {
 
     async function salvar(secao: SecaoId) {
         setSalvando(true)
-        await new Promise((r) => setTimeout(r, 400))
+        let result
         switch (secao) {
             case "regras":
-                atualizarRegrasOperacionais(draftRegras, currentUser)
+                result = await atualizarRegrasOperacionais(draftRegras)
                 break
             case "empresa":
-                atualizarDadosEmpresa(draftEmpresa, currentUser)
+                result = await atualizarDadosEmpresa(draftEmpresa)
                 break
             case "deposito":
-                atualizarDeposito(draftDeposito, currentUser)
+                result = await atualizarDeposito(draftDeposito)
                 break
             case "seguranca":
-                atualizarSeguranca(draftSeguranca, currentUser)
+                result = await atualizarSeguranca(draftSeguranca)
                 break
         }
         setSalvando(false)
-        showToast("Configurações salvas.")
+        if (result?.ok) {
+            showToast("Configurações salvas.")
+        } else {
+            showToast(result?.error || "Erro ao salvar configurações.")
+        }
     }
 
     if (loading) {
@@ -212,6 +227,22 @@ function ConfiguracoesScreen() {
                     <div className="h-16 animate-pulse rounded-lg bg-muted" />
                     <div className="h-16 animate-pulse rounded-lg bg-muted" />
                 </div>
+            </div>
+        )
+    }
+
+    if (error) {
+        return (
+            <div className="flex items-center justify-center p-6">
+                <p className="text-destructive">Erro ao carregar configurações: {error}</p>
+            </div>
+        )
+    }
+
+    if (!configuracoes) {
+        return (
+            <div className="flex items-center justify-center p-6">
+                <p className="text-muted-foreground">Nenhuma configuração encontrada.</p>
             </div>
         )
     }

@@ -14,9 +14,9 @@ import { cn } from "@/lib/utils"
 import type { Produto } from "@/types/domain"
 import {
   MARCAS,
-  formatBRL,
   onlyDigits,
-} from "@/lib/mock-produtos"
+} from "@/lib/utils/produto-utils"
+import { formatBRL } from "@/lib/utils/formatters"
 import { ProdutoStatusBadge } from "./produto-status-badge"
 import { ProdutoDrawer, type SaveResult } from "./produto-drawer"
 import { useProdutosStore } from "@/lib/produtos-store"

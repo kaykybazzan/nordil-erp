@@ -17,6 +17,9 @@ const ProdutoInputSchema = z.object({
   precoVenda: z.number().positive("Preço de venda deve ser maior que zero"),
   status: z.enum(["ativo", "inativo"]),
   corredor: z.string().optional(),
+  categoria: z.string().optional(),
+  fornecedor: z.string().optional(),
+  estoqueMinimo: z.number().int().nonnegative().default(10),
 })
 
 type ProdutoInput = z.infer<typeof ProdutoInputSchema>
@@ -48,6 +51,9 @@ export async function listarProdutos() {
       status: p.status as "ativo" | "inativo",
       estoqueAtual: p.estoqueAtual,
       corredor: p.corredor ?? undefined,
+      categoria: p.categoria ?? undefined,
+      fornecedor: p.fornecedor ?? undefined,
+      estoqueMinimo: p.estoqueMinimo,
       createdAt: p.createdAt.toISOString(),
       updatedAt: p.updatedAt.toISOString(),
     }))
@@ -87,6 +93,9 @@ export async function criarProduto(input: ProdutoInput) {
         precoVenda: dados.precoVenda,
         status: dados.status,
         corredor: dados.corredor,
+        categoria: dados.categoria,
+        fornecedor: dados.fornecedor,
+        estoqueMinimo: dados.estoqueMinimo,
         estoqueAtual: 0, // Sempre inicia com 0, nunca editável via formulário
       },
     })
@@ -113,6 +122,9 @@ export async function criarProduto(input: ProdutoInput) {
       status: produto.status as "ativo" | "inativo",
       estoqueAtual: produto.estoqueAtual,
       corredor: produto.corredor ?? undefined,
+      categoria: produto.categoria ?? undefined,
+      fornecedor: produto.fornecedor ?? undefined,
+      estoqueMinimo: produto.estoqueMinimo,
       createdAt: produto.createdAt.toISOString(),
       updatedAt: produto.updatedAt.toISOString(),
     }
@@ -167,6 +179,9 @@ export async function atualizarProduto(id: string, input: ProdutoInput) {
         precoVenda: dados.precoVenda,
         status: dados.status,
         corredor: dados.corredor,
+        categoria: dados.categoria,
+        fornecedor: dados.fornecedor,
+        estoqueMinimo: dados.estoqueMinimo,
         // estoqueAtual NUNCA incluído no update - só via EstoqueService futuro
       },
     })
@@ -209,6 +224,9 @@ export async function atualizarProduto(id: string, input: ProdutoInput) {
       status: produto.status as "ativo" | "inativo",
       estoqueAtual: produto.estoqueAtual,
       corredor: produto.corredor ?? undefined,
+      categoria: produto.categoria ?? undefined,
+      fornecedor: produto.fornecedor ?? undefined,
+      estoqueMinimo: produto.estoqueMinimo,
       createdAt: produto.createdAt.toISOString(),
       updatedAt: produto.updatedAt.toISOString(),
     }
@@ -266,6 +284,9 @@ export async function inativarProduto(id: string) {
       status: atualizado.status as "ativo" | "inativo",
       estoqueAtual: atualizado.estoqueAtual,
       corredor: atualizado.corredor ?? undefined,
+      categoria: atualizado.categoria ?? undefined,
+      fornecedor: atualizado.fornecedor ?? undefined,
+      estoqueMinimo: atualizado.estoqueMinimo,
       createdAt: atualizado.createdAt.toISOString(),
       updatedAt: atualizado.updatedAt.toISOString(),
     }
@@ -320,6 +341,9 @@ export async function reativarProduto(id: string) {
       status: atualizado.status as "ativo" | "inativo",
       estoqueAtual: atualizado.estoqueAtual,
       corredor: atualizado.corredor ?? undefined,
+      categoria: atualizado.categoria ?? undefined,
+      fornecedor: atualizado.fornecedor ?? undefined,
+      estoqueMinimo: atualizado.estoqueMinimo,
       createdAt: atualizado.createdAt.toISOString(),
       updatedAt: atualizado.updatedAt.toISOString(),
     }

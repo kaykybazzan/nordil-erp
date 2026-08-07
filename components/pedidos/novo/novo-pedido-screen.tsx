@@ -1,11 +1,11 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Plus, Trash2, Loader2, ShoppingCart } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { MOCK_CLIENTES } from "@/lib/mock-clientes"
-import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
+import { listarClientes } from "@/lib/actions/clientes"
+import { listarProdutos } from "@/lib/actions/produtos"
 import { useCurrentUser } from "@/lib/auth-context"
 import { usePedidosStore } from "@/lib/pedidos-store"
 
@@ -37,6 +37,10 @@ export function NovoPedidoScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | null>(null)
+  const [clientes, setClientes] = useState<any[]>([])
+  const [produtos, setProdutos] = useState<any[]>([])
+  const [carregandoDados, setCarregandoDados] = useState(false)
+  const [erroCarregarDados, setErroCarregarDados] = useState<string | null>(null)
 
   function showToast(msg: string) {
     if (toastTimer.current) clearTimeout(toastTimer.current)
@@ -44,11 +48,28 @@ export function NovoPedidoScreen() {
     toastTimer.current = window.setTimeout(() => setToast(null), 2800)
   }
 
-  const clienteSelecionado = MOCK_CLIENTES.find((c) => c.id === clienteId)
+  useEffect(() => {
+    setCarregandoDados(true)
+    setErroCarregarDados(null)
+    Promise.all([listarClientes(), listarProdutos()]).then(([clientesResult, produtosResult]) => {
+      if (clientesResult.ok && clientesResult.data) {
+        setClientes(clientesResult.data)
+      }
+      if (produtosResult.ok && produtosResult.data) {
+        setProdutos(produtosResult.data)
+      }
+      if (!clientesResult.ok || !produtosResult.ok) {
+        setErroCarregarDados("Erro ao carregar dados de clientes/produtos")
+      }
+      setCarregandoDados(false)
+    })
+  }, [])
+
+  const clienteSelecionado = clientes.find((c) => c.id === clienteId)
   const enderecos = clienteSelecionado?.enderecos ?? []
 
   // produtos ativos com estoque
-  const produtosDisponiveis = MOCK_PRODUTOS.filter(
+  const produtosDisponiveis = produtos.filter(
     (p) => p.status === "ativo",
   )
 
@@ -68,7 +89,7 @@ export function NovoPedidoScreen() {
 
   // Calcula total dos itens válidos
   const total = itens.reduce((acc, item) => {
-    const produto = MOCK_PRODUTOS.find((p) => p.id === item.produtoId)
+    const produto = produtos.find((p) => p.id === item.produtoId)
     if (!produto) return acc
     const qtd = parseFloat(item.quantidade) || 0
     const desc = parseFloat(item.desconto) || 0
@@ -119,7 +140,7 @@ export function NovoPedidoScreen() {
       endereco,
       observacao: observacao.trim() || undefined,
       itens: itensValidos.map((i) => {
-        const produto = MOCK_PRODUTOS.find((p) => p.id === i.produtoId)!
+        const produto = produtos.find((p) => p.id === i.produtoId)!
         return {
           produtoId: i.produtoId,
           quantidade: parseFloat(i.quantidade),
@@ -153,6 +174,11 @@ export function NovoPedidoScreen() {
   return (
     <form onSubmit={handleSubmit} noValidate>
       <div className="mx-auto max-w-3xl space-y-5 p-6">
+        {erroCarregarDados && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            {erroCarregarDados}
+          </div>
+        )}
         {/* Cabeçalho */}
         <div className="flex items-center gap-3">
           <button
@@ -185,7 +211,7 @@ export function NovoPedidoScreen() {
                 )}
               >
                 <option value="">Selecione um cliente...</option>
-                {MOCK_CLIENTES.filter((c) => c.status === "ativo").map((c) => (
+                {clientes.filter((c) => c.status === "ativo").map((c) => (
                   <option key={c.id} value={c.id}>{c.nome}</option>
                 ))}
               </select>
@@ -204,7 +230,7 @@ export function NovoPedidoScreen() {
                   onChange={(e) => setEnderecoIdx(Number(e.target.value))}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
-                  {enderecos.map((end, idx) => (
+                  {enderecos.map((end: any, idx: number) => (
                     <option key={end.id} value={idx}>
                       {end.logradouro}, {end.numero} — {end.cidade}/{end.uf}
                     </option>
@@ -237,7 +263,7 @@ export function NovoPedidoScreen() {
 
           <div className="space-y-3">
             {itens.map((item, idx) => {
-              const produto = MOCK_PRODUTOS.find((p) => p.id === item.produtoId)
+              const produto = produtos.find((p) => p.id === item.produtoId)
               const qtd = parseFloat(item.quantidade) || 0
               const desc = parseFloat(item.desconto) || 0
               const subtotal = produto ? produto.precoVenda * qtd * (1 - desc / 100) : 0

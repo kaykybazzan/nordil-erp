@@ -18,17 +18,22 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { EntradaEstoque, EntradaItem, Produto } from "@/types/domain"
+import { Modal } from "@/components/ui/modal"
+import { actionCriarFornecedor } from "@/lib/actions/entradas"
 import {
-  MOCK_FORNECEDORES,
-  MOCK_ENTRADAS,
-  gerarIdEntrada,
   calcularTotalEntrada,
   formatDataBR,
   formatDataHoraBR,
   hoje,
-  isDuplicata,
-} from "@/lib/mock-entradas"
-import { MOCK_PRODUTOS, formatBRL } from "@/lib/mock-produtos"
+  formatBRL,
+} from "@/lib/utils/formatters"
+import {
+  actionListarFornecedores,
+  actionListarEntradas,
+  actionCriarEntrada,
+  actionVerificarDuplicata,
+} from "@/lib/actions/entradas"
+import { listarProdutos } from "@/lib/actions/produtos"
 
 // ---------------------------------------------------------------------------
 // Tipos internos
@@ -45,6 +50,23 @@ type Linha = {
 }
 
 type Vista = "historico" | "nova-entrada" | "visualizar"
+
+type Fornecedor = {
+  id: string
+  nome: string
+  contato?: string
+}
+
+type EntradaComDados = EntradaEstoque & {
+  fornecedorNome: string
+  itens: Array<{
+    id: string
+    produtoId: string
+    produtoNome: string
+    quantidade: number
+    custoUnitario: number
+  }>
+}
 
 // ---------------------------------------------------------------------------
 // Utilitários
@@ -78,10 +100,10 @@ function linhaCompleta(l: Linha): boolean {
   )
 }
 
-function buscarProdutos(q: string): Produto[] {
-  if (!q.trim()) return MOCK_PRODUTOS.slice(0, 8)
+function buscarProdutos(q: string, produtosDisponiveis: Produto[]): Produto[] {
+  if (!q.trim()) return produtosDisponiveis.slice(0, 8)
   const t = q.toLowerCase()
-  return MOCK_PRODUTOS.filter(
+  return produtosDisponiveis.filter(
     (p) =>
       p.nome.toLowerCase().includes(t) ||
       p.skuInterno.toLowerCase().includes(t) ||
@@ -89,8 +111,8 @@ function buscarProdutos(q: string): Produto[] {
   ).slice(0, 8)
 }
 
-function nomeFornecedor(id: string): string {
-  return MOCK_FORNECEDORES.find((f) => f.id === id)?.nome ?? "—"
+function nomeFornecedor(id: string, fornecedoresDisponiveis: Fornecedor[]): string {
+  return fornecedoresDisponiveis.find((f) => f.id === id)?.nome ?? "—"
 }
 
 function totalItens(entrada: EntradaEstoque): number {
@@ -102,9 +124,13 @@ function totalItens(entrada: EntradaEstoque): number {
 // ---------------------------------------------------------------------------
 
 export function EntradaScreen() {
-  const [entradas, setEntradas] = useState<EntradaEstoque[]>([...MOCK_ENTRADAS])
+  const [entradas, setEntradas] = useState<EntradaComDados[]>([])
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([])
+  const [produtos, setProdutos] = useState<Produto[]>([])
+  const [carregando, setCarregando] = useState(true)
+  const [erroCarregamento, setErroCarregamento] = useState<string | null>(null)
   const [vista, setVista] = useState<Vista>("historico")
-  const [entradaEmVisao, setEntradaEmVisao] = useState<EntradaEstoque | null>(null)
+  const [entradaEmVisao, setEntradaEmVisao] = useState<EntradaComDados | null>(null)
 
   // --- Filtros do histórico ---
   const [busca, setBusca] = useState("")
@@ -117,6 +143,11 @@ export function EntradaScreen() {
   const [fornecedorId, setFornecedorId] = useState("")
   const [fornecedorBusca, setFornecedorBusca] = useState("")
   const [fornecedorMenuAberto, setFornecedorMenuAberto] = useState(false)
+  const [modalNovoFORNECEDORAberto, setModalNovoFornecedorAberto] = useState(false)
+  const [novoFornecedorNome, setNovoFornecedorNome] = useState("")
+  const [novoFornecedorContato, setNovoFornecedorContato] = useState("")
+  const [criandoFornecedor, setCriandoFornecedor] = useState(false)
+  const [erroCriarFornecedor, setErroCriarFornecedor] = useState<string | null>(null)
   const [numeroNF, setNumeroNF] = useState("")
   const [serie, setSerie] = useState("")
   const [dataEmissao, setDataEmissao] = useState("")
@@ -151,7 +182,7 @@ export function EntradaScreen() {
           const t = busca.toLowerCase()
           return (
             e.numeroNF.toLowerCase().includes(t) ||
-            nomeFornecedor(e.fornecedorId).toLowerCase().includes(t)
+            nomeFornecedor(e.fornecedorId, fornecedores).toLowerCase().includes(t)
           )
         }
         return true
@@ -203,14 +234,22 @@ export function EntradaScreen() {
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    if (fornecedorId && numeroNF && isDuplicata(entradas, fornecedorId, numeroNF)) {
-      setAviso(
-        "Já existe uma entrada com esta nota fiscal deste fornecedor. Deseja continuar?"
-      )
-    } else {
-      setAviso("")
+    async function verificarDuplicata() {
+      if (fornecedorId && numeroNF) {
+        const result = await actionVerificarDuplicata({ fornecedorId, numeroNF })
+        if (result.ok && result.data?.isDuplicata) {
+          setAviso(
+            "Já existe uma entrada com esta nota fiscal deste fornecedor. Deseja continuar?"
+          )
+        } else {
+          setAviso("")
+        }
+      } else {
+        setAviso("")
+      }
     }
-  }, [fornecedorId, numeroNF, entradas])
+    verificarDuplicata()
+  }, [fornecedorId, numeroNF])
 
   // ---------------------------------------------------------------------------
   // Validação do botão Salvar
@@ -300,13 +339,7 @@ export function EntradaScreen() {
     setSalvando(true)
     setErroSalvar("")
 
-    await new Promise((r) => setTimeout(r, 900))
-
-    // Simula erro randômico com 10% de chance para demonstrar o estado de erro
-    // (remover em produção — apenas para fins de demonstração)
-    // if (Math.random() < 0.1) { setSalvando(false); setErroSalvar("Falha de comunicação com o servidor. Tente novamente."); return; }
-
-    const itens: EntradaItem[] = linhas
+    const itens = linhas
       .filter(linhaCompleta)
       .map((l) => ({
         produtoId: l.produto!.id,
@@ -314,8 +347,7 @@ export function EntradaScreen() {
         custoUnitario: parseNum(l.custoUnitario),
       }))
 
-    const nova: EntradaEstoque = {
-      id: gerarIdEntrada(),
+    const resultado = await actionCriarEntrada({
       fornecedorId,
       numeroNF: numeroNF.trim(),
       serie: serie.trim() || undefined,
@@ -323,11 +355,20 @@ export function EntradaScreen() {
       dataRecebimento,
       observacao: observacao.trim() || undefined,
       itens,
-      lancadoPor: "Bruno Teixeira",
-      dataHoraLancamento: new Date().toISOString(),
+    })
+
+    if (!resultado.ok) {
+      setErroSalvar(resultado.error || "Erro ao salvar entrada")
+      setSalvando(false)
+      return
     }
 
-    setEntradas((prev) => [nova, ...prev])
+    // Recarregar entradas
+    const entradasResult = await actionListarEntradas()
+    if (entradasResult.ok && entradasResult.data) {
+      setEntradas(entradasResult.data)
+    }
+
     setSalvando(false)
     resetFormulario()
     setVista("historico")
@@ -355,7 +396,7 @@ export function EntradaScreen() {
     setVista("nova-entrada")
   }
 
-  function abrirVisualizacao(entrada: EntradaEstoque) {
+  function abrirVisualizacao(entrada: EntradaComDados) {
     setEntradaEmVisao(entrada)
     setVista("visualizar")
   }
@@ -367,15 +408,90 @@ export function EntradaScreen() {
 
   const [toastMsg, setToastMsg] = useState("")
 
+  // Carregar dados no mount
+  useEffect(() => {
+    async function carregarDados() {
+      setCarregando(true)
+      setErroCarregamento(null)
+      try {
+        const [fornResult, prodResult, entrResult] = await Promise.all([
+          actionListarFornecedores(),
+          listarProdutos(),
+          actionListarEntradas(),
+        ])
+        
+        if (!fornResult.ok) throw new Error(fornResult.error || "Erro ao carregar fornecedores")
+        if (!prodResult.ok) throw new Error(prodResult.error || "Erro ao carregar produtos")
+        if (!entrResult.ok) throw new Error(entrResult.error || "Erro ao carregar entradas")
+        
+        if (fornResult.data) setFornecedores(fornResult.data)
+        if (prodResult.data) setProdutos(prodResult.data)
+        if (entrResult.data) setEntradas(entrResult.data)
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error)
+        setErroCarregamento(error instanceof Error ? error.message : "Erro ao carregar dados. Tente novamente.")
+      } finally {
+        setCarregando(false)
+      }
+    }
+    carregarDados()
+  }, [])
+
+  // Criar novo fornecedor
+  async function handleCriarFornecedor() {
+    if (!novoFornecedorNome.trim()) {
+      setErroCriarFornecedor("Nome do fornecedor é obrigatório")
+      return
+    }
+
+    setCriandoFornecedor(true)
+    setErroCriarFornecedor(null)
+
+    try {
+      const resultado = await actionCriarFornecedor({
+        nome: novoFornecedorNome.trim(),
+        contato: novoFornecedorContato.trim() || undefined,
+      })
+
+      if (!resultado.ok) {
+        setErroCriarFornecedor(resultado.error || "Erro ao criar fornecedor")
+        return
+      }
+
+      if (!resultado.data) {
+        setErroCriarFornecedor("Erro ao criar fornecedor: resposta inválida")
+        return
+      }
+
+      // Adicionar fornecedor à lista local
+      setFornecedores((prev) => [...prev, resultado.data])
+      
+      // Selecionar o novo fornecedor
+      setFornecedorId(resultado.data.id)
+      setFornecedorBusca(resultado.data.nome)
+      setFornecedorMenuAberto(false)
+
+      // Fechar modal e limpar
+      setModalNovoFornecedorAberto(false)
+      setNovoFornecedorNome("")
+      setNovoFornecedorContato("")
+    } catch (error) {
+      console.error("Erro ao criar fornecedor:", error)
+      setErroCriarFornecedor("Erro ao criar fornecedor. Tente novamente.")
+    } finally {
+      setCriandoFornecedor(false)
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Fornecedores filtrados para o seletor
   // ---------------------------------------------------------------------------
 
   const fornecedoresFiltrados = useMemo(() => {
-    if (!fornecedorBusca.trim()) return MOCK_FORNECEDORES
+    if (!fornecedorBusca.trim()) return fornecedores
     const t = fornecedorBusca.toLowerCase()
-    return MOCK_FORNECEDORES.filter((f) => f.nome.toLowerCase().includes(t))
-  }, [fornecedorBusca])
+    return fornecedores.filter((f) => f.nome.toLowerCase().includes(t))
+  }, [fornecedorBusca, fornecedores])
 
   // ---------------------------------------------------------------------------
   // Totalizadores do formulário
@@ -395,6 +511,42 @@ export function EntradaScreen() {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+
+  // Loading state
+  if (carregando) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (erroCarregamento) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center px-6">
+          <div className="rounded-full bg-destructive/10 p-3">
+            <TriangleAlert className="h-6 w-6 text-destructive" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Erro ao carregar dados</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{erroCarregamento}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-0 h-full">
@@ -426,6 +578,7 @@ export function EntradaScreen() {
           onDataFim={setDataFim}
           onNovaEntrada={abrirNovaEntrada}
           onVisualizar={abrirVisualizacao}
+          fornecedores={fornecedores}
         />
       )}
 
@@ -444,6 +597,7 @@ export function EntradaScreen() {
             setFornecedorBusca(f.nome)
             setFornecedorMenuAberto(false)
           }}
+          onAbrirModalNovoFornecedor={() => setModalNovoFornecedorAberto(true)}
           numeroNF={numeroNF}
           onNumeroNF={setNumeroNF}
           serie={serie}
@@ -468,6 +622,7 @@ export function EntradaScreen() {
           onVoltar={voltarHistorico}
           erroSalvar={erroSalvar}
           aviso={aviso}
+          produtos={produtos}
         />
       )}
 
@@ -475,8 +630,77 @@ export function EntradaScreen() {
         <VistaVisualizacao
           entrada={entradaEmVisao}
           onVoltar={voltarHistorico}
+          produtos={produtos}
         />
       )}
+
+      {/* Modal: Cadastrar novo fornecedor */}
+      <Modal
+        open={modalNovoFORNECEDORAberto}
+        onOpenChange={setModalNovoFornecedorAberto}
+        title="Cadastrar novo fornecedor"
+        description="Preencha os dados abaixo para adicionar um novo fornecedor."
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="novo-fornecedor-nome" className="text-xs font-medium text-muted-foreground">
+              Nome <span className="text-destructive">*</span>
+            </label>
+            <input
+              id="novo-fornecedor-nome"
+              type="text"
+              value={novoFornecedorNome}
+              onChange={(e) => setNovoFornecedorNome(e.target.value)}
+              placeholder="Nome do fornecedor"
+              disabled={criandoFornecedor}
+              className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:bg-muted/50 disabled:cursor-not-allowed"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="novo-fornecedor-contato" className="text-xs font-medium text-muted-foreground">
+              Contato
+            </label>
+            <input
+              id="novo-fornecedor-contato"
+              type="text"
+              value={novoFornecedorContato}
+              onChange={(e) => setNovoFornecedorContato(e.target.value)}
+              placeholder="Email ou telefone (opcional)"
+              disabled={criandoFornecedor}
+              className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:bg-muted/50 disabled:cursor-not-allowed"
+            />
+          </div>
+          {erroCriarFornecedor && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/8 px-3 py-2 text-sm text-destructive">
+              <TriangleAlert className="size-4 shrink-0 mt-0.5" />
+              <span>{erroCriarFornecedor}</span>
+            </div>
+          )}
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setModalNovoFornecedorAberto(false)
+                setNovoFornecedorNome("")
+                setNovoFornecedorContato("")
+                setErroCriarFornecedor(null)
+              }}
+              disabled={criandoFornecedor}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:pointer-events-none disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleCriarFornecedor}
+              disabled={criandoFornecedor || !novoFornecedorNome.trim()}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:pointer-events-none disabled:opacity-50"
+            >
+              {criandoFornecedor ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -500,8 +724,9 @@ function VistaHistorico({
   onDataFim,
   onNovaEntrada,
   onVisualizar,
+  fornecedores,
 }: {
-  historico: EntradaEstoque[]
+  historico: EntradaComDados[]
   busca: string
   onBusca: (v: string) => void
   filtroFornecedor: string
@@ -514,12 +739,13 @@ function VistaHistorico({
   dataFim: string
   onDataFim: (v: string) => void
   onNovaEntrada: () => void
-  onVisualizar: (e: EntradaEstoque) => void
+  onVisualizar: (e: EntradaComDados) => void
+  fornecedores: Fornecedor[]
 }) {
   const nomeFornAtivo =
     filtroFornecedor === "todos"
       ? null
-      : MOCK_FORNECEDORES.find((f) => f.id === filtroFornecedor)?.nome
+      : fornecedores.find((f) => f.id === filtroFornecedor)?.nome
 
   return (
     <div className="flex flex-col gap-4">
@@ -574,7 +800,7 @@ function VistaHistorico({
               >
                 Todos
               </button>
-              {MOCK_FORNECEDORES.map((f) => (
+              {fornecedores.map((f) => (
                 <button
                   key={f.id}
                   type="button"
@@ -687,7 +913,7 @@ function VistaHistorico({
                       <span className="ml-1.5 text-xs text-muted-foreground">/{e.serie}</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-foreground">{nomeFornecedor(e.fornecedorId)}</td>
+                  <td className="px-4 py-3 text-foreground">{nomeFornecedor(e.fornecedorId, fornecedores)}</td>
                   <td className="px-4 py-3 font-mono tabular-nums text-foreground">{formatDataBR(e.dataRecebimento)}</td>
                   <td className="px-4 py-3 font-mono tabular-nums text-right text-foreground">
                     {totalItens(e)}
@@ -723,6 +949,7 @@ function VistaFormulario({
   fornecedorInputRef,
   fornecedoresFiltrados,
   onSelecionarFornecedor,
+  onAbrirModalNovoFornecedor,
   numeroNF,
   onNumeroNF,
   serie,
@@ -747,6 +974,7 @@ function VistaFormulario({
   onVoltar,
   erroSalvar,
   aviso,
+  produtos,
 }: {
   fornecedorId: string
   fornecedorBusca: string
@@ -755,8 +983,9 @@ function VistaFormulario({
   onToggleFornecedorMenu: () => void
   fornecedorMenuRef: React.RefObject<HTMLDivElement | null>
   fornecedorInputRef: React.RefObject<HTMLInputElement | null>
-  fornecedoresFiltrados: typeof MOCK_FORNECEDORES
-  onSelecionarFornecedor: (f: typeof MOCK_FORNECEDORES[0]) => void
+  fornecedoresFiltrados: Fornecedor[]
+  onSelecionarFornecedor: (f: Fornecedor) => void
+  onAbrirModalNovoFornecedor: () => void
   numeroNF: string
   onNumeroNF: (v: string) => void
   serie: string
@@ -783,8 +1012,9 @@ function VistaFormulario({
   salvando: boolean
   onSalvar: () => void
   onVoltar: () => void
-  erroSalvar: string
-  aviso: string
+  erroSalvar: string | undefined
+  aviso: string | undefined
+  produtos: Produto[]
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -848,21 +1078,44 @@ function VistaFormulario({
                   fornecedorId ? "border-input" : "border-input"
                 )}
               />
-              {fornecedorMenuAberto && fornecedoresFiltrados.length > 0 && (
+              {fornecedorMenuAberto && (
                 <div className="absolute left-0 top-full mt-1 z-30 w-full min-w-48 rounded-lg border border-border bg-card shadow-lg max-h-52 overflow-y-auto p-1">
-                  {fornecedoresFiltrados.map((f) => (
+                  {fornecedoresFiltrados.length === 0 && !fornecedorBusca.trim() ? (
                     <button
-                      key={f.id}
                       type="button"
-                      onMouseDown={(e) => { e.preventDefault(); onSelecionarFornecedor(f) }}
-                      className={cn(
-                        "w-full text-left px-3 py-2 text-sm rounded hover:bg-muted",
-                        fornecedorId === f.id && "bg-primary/10 text-primary font-medium"
-                      )}
+                      onClick={() => { onAbrirModalNovoFornecedor(); onToggleFornecedorMenu() }}
+                      className="w-full text-left px-3 py-2 text-sm rounded hover:bg-muted text-primary font-medium"
                     >
-                      {f.nome}
+                      + Cadastrar novo fornecedor
                     </button>
-                  ))}
+                  ) : fornecedoresFiltrados.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      Nenhum fornecedor encontrado
+                    </div>
+                  ) : (
+                    <>
+                      {fornecedoresFiltrados.map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); onSelecionarFornecedor(f) }}
+                          className={cn(
+                            "w-full text-left px-3 py-2 text-sm rounded hover:bg-muted",
+                            fornecedorId === f.id && "bg-primary/10 text-primary font-medium"
+                          )}
+                        >
+                          {f.nome}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => { onAbrirModalNovoFornecedor(); onToggleFornecedorMenu() }}
+                        className="w-full text-left px-3 py-2 text-sm rounded hover:bg-muted text-primary font-medium border-t border-border mt-1 pt-2"
+                      >
+                        + Cadastrar novo fornecedor
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -981,6 +1234,7 @@ function VistaFormulario({
                 onSelecionar={(produto) => onSelecionarProduto(linha.id, produto)}
                 onRemover={() => onRemoverLinha(linha.id)}
                 onKeyDown={(e, campo) => onLinhaKeyDown(e, linha.id, campo)}
+                produtos={produtos}
               />
             ))}
           </div>
@@ -1054,6 +1308,7 @@ function LinhaItem({
   onSelecionar,
   onRemover,
   onKeyDown,
+  produtos,
 }: {
   linha: Linha
   index: number
@@ -1062,10 +1317,11 @@ function LinhaItem({
   onSelecionar: (produto: Produto) => void
   onRemover: () => void
   onKeyDown: (e: React.KeyboardEvent, campo: "quantidade" | "custo") => void
+  produtos: Produto[]
 }) {
   const resultados = useMemo(
-    () => (linha.seletorAberto ? buscarProdutos(linha.busca) : []),
-    [linha.seletorAberto, linha.busca]
+    () => (linha.seletorAberto ? buscarProdutos(linha.busca, produtos) : []),
+    [linha.seletorAberto, linha.busca, produtos]
   )
 
   const sub = subtotal(linha)
@@ -1201,9 +1457,11 @@ function LinhaItem({
 function VistaVisualizacao({
   entrada,
   onVoltar,
+  produtos,
 }: {
-  entrada: EntradaEstoque
+  entrada: EntradaComDados
   onVoltar: () => void
+  produtos: Produto[]
 }) {
   const total = calcularTotalEntrada(entrada)
 
@@ -1223,7 +1481,7 @@ function VistaVisualizacao({
         <span className="text-sm font-medium text-foreground">
           NF {entrada.numeroNF}
           {entrada.serie && <span className="text-muted-foreground">/{entrada.serie}</span>}
-          {" "}— {nomeFornecedor(entrada.fornecedorId)}
+          {" "}— {entrada.fornecedorNome}
         </span>
         <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">
           Somente leitura
@@ -1238,7 +1496,7 @@ function VistaVisualizacao({
 
         <div className="px-5 py-4 grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-3 xl:grid-cols-6">
           <Campo label="Fornecedor" span={2}>
-            {nomeFornecedor(entrada.fornecedorId)}
+            {entrada.fornecedorNome}
           </Campo>
           <Campo label="Nº da NF">
             <span className="font-mono tabular-nums">{entrada.numeroNF}</span>
@@ -1282,7 +1540,7 @@ function VistaVisualizacao({
           </div>
 
           {entrada.itens.map((item, i) => {
-            const produto = MOCK_PRODUTOS.find((p) => p.id === item.produtoId)
+            const produto = produtos.find((p) => p.id === item.produtoId)
             return (
               <div
                 key={item.produtoId}

@@ -3,8 +3,6 @@
 import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useCurrentUser } from "@/lib/auth-context"
-import { MOCK_CLIENTES } from "@/lib/mock-clientes"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
 import { DataTable, type DataTableColumn, type DataTableSort } from "@/components/ui/data-table"
 import { PedidoStatusBadge } from "@/components/status-badges"
 import { Button } from "@/components/ui/button"
@@ -13,6 +11,8 @@ import { podeCancelarPedido, isPedidoAtrasado, formatTempoNoStatus } from "@/lib
 import { usePedidosStore } from "@/lib/pedidos-store"
 import type { Pedido, StatusPedido } from "@/types/domain"
 import { useToast } from "@/components/ui/simple-toast"
+import { listarClientes } from "@/lib/actions/clientes"
+import { actionObterUsuarios } from "@/lib/actions/usuarios"
 
 const PAGE_SIZE = 30
 
@@ -58,11 +58,33 @@ export default function PedidosPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>(pedidosStore)
   const [pedidoParaCancelar, setPedidoParaCancelar] = useState<Pedido | null>(null)
   const [sort, setSort] = useState<DataTableSort>({ columnId: "criadoEm", direction: "desc" })
+  const [clientes, setClientes] = useState<any[]>([])
+  const [usuarios, setUsuarios] = useState<any[]>([])
+  const [carregandoDados, setCarregandoDados] = useState(false)
+  const [erroCarregarDados, setErroCarregarDados] = useState<string | null>(null)
 
   // Carregar pedidos do backend na montagem
   useEffect(() => {
     carregarPedidos()
   }, [carregarPedidos])
+
+  // Carregar clientes e usuários
+  useEffect(() => {
+    setCarregandoDados(true)
+    setErroCarregarDados(null)
+    Promise.all([listarClientes(), actionObterUsuarios()]).then(([clientesResult, usuariosResult]) => {
+      if (clientesResult.ok && clientesResult.data) {
+        setClientes(clientesResult.data)
+      }
+      if (usuariosResult.ok && usuariosResult.data) {
+        setUsuarios(usuariosResult.data)
+      }
+      if (!clientesResult.ok || !usuariosResult.ok) {
+        setErroCarregarDados("Erro ao carregar dados de clientes/usuários")
+      }
+      setCarregandoDados(false)
+    })
+  }, [])
 
   // Sincronizar estado local com store
   useEffect(() => {
@@ -82,15 +104,15 @@ export default function PedidosPage() {
 
   const clientesPorId = useMemo(() => {
     const map = new Map<string, string>()
-    for (const c of MOCK_CLIENTES) map.set(c.id, c.nome)
+    for (const c of clientes) map.set(c.id, c.nome)
     return map
-  }, [])
+  }, [clientes])
 
   const vendedoresPorId = useMemo(() => {
     const map = new Map<string, string>()
-    for (const u of MOCK_USUARIOS) map.set(u.id, u.nome)
+    for (const u of usuarios) map.set(u.id, u.nome)
     return map
-  }, [])
+  }, [usuarios])
 
   const base = useMemo(
     () => (isVendedor ? pedidos.filter((p) => p.vendedorId === currentUser.id) : pedidos),
@@ -224,6 +246,12 @@ export default function PedidosPage() {
 
   return (
     <div className="flex flex-col gap-4 p-6">
+      {erroCarregarDados && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {erroCarregarDados}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">{isVendedor ? "Meus pedidos" : "Pedidos"}</h1>
         {isVendedor && (
@@ -289,7 +317,7 @@ export default function PedidosPage() {
             className="h-8 rounded-md border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <option value="">Todos vendedores</option>
-            {MOCK_USUARIOS
+            {usuarios
               .filter((u) => u.role === "OPERADOR" && u.funcao === "VENDAS")
               .map((u) => (
                 <option key={u.id} value={u.id}>

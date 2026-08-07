@@ -5,20 +5,26 @@ import type {
     EnderecoPedido,
     Usuario,
     StatusPedido,
+    Conferencia,
 } from "@/types/domain"
 import {
     actionCriarPedido,
     actionReprocessarReserva,
     actionCancelarPedido,
-    actionIniciarSeparacao,
-    actionMarcarItemSeparado,
-    actionConcluirSeparacao,
-    actionConfirmarConferencia,
-    actionRegistrarDivergenciaConferencia,
     actionExpedirPedido,
     actionMarcarEntregue,
     actionObterPedidos,
 } from "./actions/pedidos"
+import {
+    actionIniciarSeparacao,
+    actionFinalizarSeparacao,
+} from "./actions/separacao"
+import {
+    actionListarFilaConferencia,
+    actionIniciarConferencia,
+    actionRegistrarItemConferencia,
+    actionFinalizarConferencia,
+} from "./actions/conferencia"
 
 
 interface NovoPedidoItemInput {
@@ -36,9 +42,12 @@ interface CriarPedidoInput {
 }
 
 type AcaoResultado = { ok: true; data?: Pedido } | { ok: false; error?: string }
+type AcaoResultadoConferencia = { ok: true; data?: Conferencia } | { ok: false; error?: string }
 
 interface PedidosState {
     pedidos: Pedido[]
+    filaConferencia: Pedido[]
+    conferenciaAtual: Conferencia | null
 
     carregarPedidos: () => Promise<{ ok: boolean; error?: string }>
 
@@ -49,11 +58,15 @@ interface PedidosState {
     cancelarPedido: (pedidoId: string, motivo: string) => Promise<AcaoResultado>
 
     iniciarSeparacao: (pedidoId: string) => Promise<AcaoResultado>
-    marcarItemSeparado: (pedidoId: string, itemId: string) => Promise<AcaoResultado>
-    concluirSeparacao: (pedidoId: string) => Promise<AcaoResultado>
-
-    confirmarConferencia: (pedidoId: string) => Promise<AcaoResultado>
-    registrarDivergenciaConferencia: (pedidoId: string, descricao: string) => Promise<AcaoResultado>
+    concluirSeparacao: (pedidoId: string, itens: Array<{ itemPedidoId: string; quantidadeSeparada: number }>) => Promise<AcaoResultado>
+    carregarFilaConferencia: () => Promise<{ ok: boolean; error?: string }>
+    iniciarConferencia: (pedidoId: string) => Promise<AcaoResultadoConferencia>
+    registrarItemConferencia: (input: {
+        conferenciaId: string
+        conferenciaItemId: string
+        quantidadeConferida: number
+    }) => Promise<AcaoResultadoConferencia>
+    finalizarConferencia: (conferenciaId: string) => Promise<AcaoResultado>
 
     expedirPedido: (pedidoId: string, transportadora: string) => Promise<AcaoResultado>
     marcarEntregue: (pedidoId: string) => Promise<AcaoResultado>
@@ -62,6 +75,8 @@ interface PedidosState {
 export const usePedidosStore = create<PedidosState>()(
     (set, get) => ({
         pedidos: [],
+        filaConferencia: [],
+        conferenciaAtual: null,
 
         carregarPedidos: async () => {
             const resultado = await actionObterPedidos()
@@ -113,7 +128,7 @@ export const usePedidosStore = create<PedidosState>()(
         },
 
         iniciarSeparacao: async (pedidoId) => {
-            const resultado = await actionIniciarSeparacao(pedidoId)
+            const resultado = await actionIniciarSeparacao({ pedidoId })
             if (!resultado.ok) {
                 return { ok: false, error: resultado.error || "Erro ao iniciar separação" }
             }
@@ -126,22 +141,8 @@ export const usePedidosStore = create<PedidosState>()(
             return { ok: true, data: resultado.data }
         },
 
-        marcarItemSeparado: async (pedidoId, itemId) => {
-            const resultado = await actionMarcarItemSeparado(pedidoId, itemId)
-            if (!resultado.ok) {
-                return { ok: false, error: resultado.error || "Erro ao marcar item separado" }
-            }
-            if (!resultado.data) {
-                return { ok: false, error: "Erro ao marcar item separado: dados não retornados" }
-            }
-            set((state) => ({
-                pedidos: state.pedidos.map((p) => (p.id === pedidoId ? resultado.data : p)),
-            }))
-            return { ok: true, data: resultado.data }
-        },
-
-        concluirSeparacao: async (pedidoId) => {
-            const resultado = await actionConcluirSeparacao(pedidoId)
+        concluirSeparacao: async (pedidoId, itens) => {
+            const resultado = await actionFinalizarSeparacao({ pedidoId, itens })
             if (!resultado.ok) {
                 return { ok: false, error: resultado.error || "Erro ao concluir separação" }
             }
@@ -154,30 +155,51 @@ export const usePedidosStore = create<PedidosState>()(
             return { ok: true, data: resultado.data }
         },
 
-        confirmarConferencia: async (pedidoId) => {
-            const resultado = await actionConfirmarConferencia(pedidoId)
+        carregarFilaConferencia: async () => {
+            const resultado = await actionListarFilaConferencia()
             if (!resultado.ok) {
-                return { ok: false, error: resultado.error || "Erro ao confirmar conferência" }
+                return { ok: false, error: resultado.error || "Erro ao carregar fila de conferência" }
+            }
+            set({ filaConferencia: resultado.data ?? [] })
+            return { ok: true }
+        },
+
+        iniciarConferencia: async (pedidoId) => {
+            const resultado = await actionIniciarConferencia({ pedidoId })
+            if (!resultado.ok) {
+                return { ok: false, error: resultado.error || "Erro ao iniciar conferência" }
             }
             if (!resultado.data) {
-                return { ok: false, error: "Erro ao confirmar conferência: dados não retornados" }
+                return { ok: false, error: "Erro ao iniciar conferência: dados não retornados" }
             }
-            set((state) => ({
-                pedidos: state.pedidos.map((p) => (p.id === pedidoId ? resultado.data : p)),
-            }))
+            set({ conferenciaAtual: resultado.data })
             return { ok: true, data: resultado.data }
         },
 
-        registrarDivergenciaConferencia: async (pedidoId, descricao) => {
-            const resultado = await actionRegistrarDivergenciaConferencia(pedidoId, descricao)
+        registrarItemConferencia: async (input) => {
+            const resultado = await actionRegistrarItemConferencia(input)
             if (!resultado.ok) {
-                return { ok: false, error: resultado.error || "Erro ao registrar divergência" }
+                return { ok: false, error: resultado.error || "Erro ao registrar item de conferência" }
             }
             if (!resultado.data) {
-                return { ok: false, error: "Erro ao registrar divergência: dados não retornados" }
+                return { ok: false, error: "Erro ao registrar item de conferência: dados não retornados" }
+            }
+            set({ conferenciaAtual: resultado.data })
+            return { ok: true, data: resultado.data }
+        },
+
+        finalizarConferencia: async (conferenciaId) => {
+            const resultado = await actionFinalizarConferencia({ conferenciaId })
+            if (!resultado.ok) {
+                return { ok: false, error: resultado.error || "Erro ao finalizar conferência" }
+            }
+            if (!resultado.data) {
+                return { ok: false, error: "Erro ao finalizar conferência: dados não retornados" }
             }
             set((state) => ({
-                pedidos: state.pedidos.map((p) => (p.id === pedidoId ? resultado.data : p)),
+                pedidos: state.pedidos.map((p) => (p.id === resultado.data!.id ? resultado.data! : p)),
+                filaConferencia: state.filaConferencia.filter((p) => p.id !== resultado.data!.id),
+                conferenciaAtual: null,
             }))
             return { ok: true, data: resultado.data }
         },

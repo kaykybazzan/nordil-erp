@@ -1,5 +1,5 @@
 import type { Cliente, Endereco } from "@/types/domain"
-import { onlyDigits } from "@/lib/mock-clientes"
+import { onlyDigits } from "@/lib/utils/cliente-utils"
 
 export function isValidCPF(value: string): boolean {
     const digits = onlyDigits(value)

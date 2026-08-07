@@ -31,6 +31,9 @@ model Empresa {
   sequenciasNumeracao SequenciaNumeracao[]
   devolucoes  Devolucao[]
   configuracoes Configuracoes?
+  fornecedores Fornecedor[]
+  entradasEstoque EntradaEstoque[]
+  inventarios Inventario[]
 
   @@map("empresas")
 }
@@ -53,6 +56,9 @@ model Usuario {
   pedidosComoVendedor  Pedido[]       @relation("PedidoVendedor")
   pedidosComoSeparador Pedido[]       @relation("PedidoSeparador")
   pedidoEventos        PedidoEvento[]
+  entradasLancadas     EntradaEstoque[] @relation("EntradaLancador")
+  inventariosAbertos    Inventario[] @relation("InventarioAbertoPor")
+  inventariosResponsavel Inventario[] @relation("InventarioResponsavel")
 
   @@index([empresaId])
   @@map("usuarios")
@@ -131,12 +137,17 @@ model Produto {
   status              String   @default("ativo") // ativo | inativo
   estoqueAtual        Int      @default(0) // fonte de leitura rápida — nunca editável diretamente por formulário, só via EstoqueService (módulo futuro)
   corredor            String?
+  categoria           String?
+  fornecedor          String?
+  estoqueMinimo       Int      @default(10)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   empresa Empresa @relation(fields: [empresaId], references: [id])
   movimentacoes EstoqueMovimentacao[]
   itensPedido ItemPedido[]
+  entradaItens EntradaItem[]
+  inventarioItens InventarioItem[]
 
   @@unique([empresaId, skuInterno])
   @@index([empresaId])
@@ -171,6 +182,7 @@ model Pedido {
   clienteId          String   @db.Uuid
   vendedorId         String   @db.Uuid
   separadorId        String?  @db.Uuid
+  conferenteId       String?  @db.Uuid
 
   enderecoLogradouro String
   enderecoNumero     String
@@ -198,6 +210,7 @@ model Pedido {
   eventos    PedidoEvento[]
   movimentacoes EstoqueMovimentacao[]
   devolucoes Devolucao[]
+  conferencias Conferencia[]
 
   @@unique([empresaId, numero])
   @@index([empresaId, status])
@@ -285,6 +298,58 @@ model ItemDevolucao {
   @@map("itens_devolucao")
 }
 
+model Fornecedor {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId String   @db.Uuid
+  nome      String
+  contato   String?
+  status    String   @default("ativo") // ativo | inativo
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+  entradas EntradaEstoque[]
+
+  @@index([empresaId])
+  @@map("fornecedores")
+}
+
+model EntradaEstoque {
+  id                 String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  empresaId          String   @db.Uuid
+  fornecedorId       String   @db.Uuid
+  numeroNF           String
+  serie              String?
+  dataEmissao        DateTime
+  dataRecebimento    DateTime
+  observacao         String?
+  lancadoPorId       String   @db.Uuid
+  dataHoraLancamento DateTime @default(now())
+
+  empresa    Empresa       @relation(fields: [empresaId], references: [id])
+  fornecedor Fornecedor   @relation(fields: [fornecedorId], references: [id])
+  lancadoPor Usuario       @relation("EntradaLancador", fields: [lancadoPorId], references: [id])
+  itens      EntradaItem[]
+
+  @@unique([empresaId, fornecedorId, numeroNF])
+  @@index([empresaId, dataRecebimento])
+  @@map("entradas_estoque")
+}
+
+model EntradaItem {
+  id               String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entradaId        String  @db.Uuid
+  produtoId        String  @db.Uuid
+  quantidade       Decimal @db.Decimal(12, 3)
+  custoUnitario    Decimal @db.Decimal(12, 2)
+
+  entrada EntradaEstoque @relation(fields: [entradaId], references: [id], onDelete: Cascade)
+  produto Produto         @relation(fields: [produtoId], references: [id])
+
+  @@index([entradaId])
+  @@map("entrada_itens")
+}
+
 model Configuracoes {
   empresaId String @id @db.Uuid
 
@@ -325,4 +390,83 @@ model Configuracoes {
   empresa Empresa @relation(fields: [empresaId], references: [id])
 
   @@map("configuracoes")
+}
+
+
+model Conferencia {
+  id           String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  pedidoId     String    @db.Uuid
+  conferenteId String    @db.Uuid
+  iniciadoEm   DateTime  @default(now())
+  finalizadoEm DateTime?
+  status       String    // EM_ANDAMENTO | CONCLUIDA_SEM_DIVERGENCIA | CONCLUIDA_COM_DIVERGENCIA
+
+  pedido Pedido            @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  itens  ConferenciaItem[]
+
+  @@index([pedidoId])
+  @@map("conferencias")
+}
+
+model ConferenciaItem {
+  id                    String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  conferenciaId         String   @db.Uuid
+  itemPedidoId          String   @db.Uuid
+  produtoId             String   @db.Uuid
+  quantidadeSolicitada  Decimal  @db.Decimal(12, 3)
+  quantidadeSeparada    Decimal  @db.Decimal(12, 3)
+  quantidadeConferida   Decimal? @db.Decimal(12, 3)
+  divergente            Boolean?
+
+  conferencia Conferencia @relation(fields: [conferenciaId], references: [id], onDelete: Cascade)
+
+  @@index([conferenciaId])
+  @@map("conferencia_itens")
+}
+
+model Inventario {
+  id                    String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  empresaId             String   @db.Uuid
+  tipoEscopo            String   // CORREDOR | CATEGORIA | FORNECEDOR | LISTA_MANUAL | ESTOQUE_BAIXO | TODOS_PRODUTOS
+  descricaoEscopo       String
+  recorte               String?  // corredor/categoria/fornecedor específico ou null para escopos que não precisam
+  observacao            String?
+  status                String   // EM_ANDAMENTO | FINALIZADO
+  abertoPorId           String   @db.Uuid
+  responsavelContagemId String   @db.Uuid
+  abertoEm              DateTime @default(now())
+  finalizadoEm          DateTime?
+  finalizadoComPendencias Boolean @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  empresa               Empresa  @relation(fields: [empresaId], references: [id])
+  abertoPor             Usuario  @relation("InventarioAbertoPor", fields: [abertoPorId], references: [id])
+  responsavelContagem   Usuario  @relation("InventarioResponsavel", fields: [responsavelContagemId], references: [id])
+  itens                 InventarioItem[]
+
+  @@index([empresaId, status])
+  @@index([empresaId, abertoEm])
+  @@map("inventarios")
+}
+
+model InventarioItem {
+  id                    String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  inventarioId          String   @db.Uuid
+  produtoId             String   @db.Uuid
+  saldoEsperado         Int      // snapshot do estoqueAtual no momento da abertura/recontagem
+  ultimaMovimentacaoId  String?  @db.Uuid // ID da EstoqueMovimentacao mais recente no momento do snapshot
+  quantidadeContada     Int?     // null = ainda não contado
+  status                String   // PENDENTE | CONTADO_OK | DIVERGENTE | NECESSITA_RECONTAGEM | AJUSTADO
+  contadoEm             DateTime?
+  observacao            String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  inventario            Inventario @relation(fields: [inventarioId], references: [id], onDelete: Cascade)
+  produto               Produto    @relation(fields: [produtoId], references: [id])
+
+  @@index([inventarioId])
+  @@index([produtoId])
+  @@map("inventario_itens")
 }

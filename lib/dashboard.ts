@@ -4,7 +4,7 @@
 // — nenhuma lógica de UI aqui, pra poder ser testada isolada e reaproveitada
 // se um dia isso virar endpoint de API em vez de leitura direta dos mocks.
 
-import type { Pedido, StatusPedido, Produto, InventarioEstoque } from "@/types/domain"
+import type { Pedido, StatusPedido, Produto, InventarioEstoque, TipoPedidoEvento } from "@/types/domain"
 
 
 // ─── Limiares de atraso ────────────────────────────────────────────────────
@@ -24,6 +24,17 @@ function ehHoje(dataIso: string): boolean {
         d.getFullYear() === agora.getFullYear() &&
         d.getMonth() === agora.getMonth() &&
         d.getDate() === agora.getDate()
+    )
+}
+
+function ehOntem(dataIso: string): boolean {
+    const d = new Date(dataIso)
+    const ontem = new Date()
+    ontem.setDate(ontem.getDate() - 1)
+    return (
+        d.getFullYear() === ontem.getFullYear() &&
+        d.getMonth() === ontem.getMonth() &&
+        d.getDate() === ontem.getDate()
     )
 }
 
@@ -63,6 +74,30 @@ export function getEntreguesHoje(pedidos: Pedido[]): Pedido[] {
 
 export function getCanceladosHoje(pedidos: Pedido[]): Pedido[] {
     return pedidos.filter((p) => p.status === "CANCELADO" && ehHoje(p.statusAlteradoEm))
+}
+
+export function getEntreguesOntem(pedidos: Pedido[]): Pedido[] {
+    return pedidos.filter((p) => p.status === "ENTREGUE" && ehOntem(p.statusAlteradoEm))
+}
+
+export function getCanceladosOntem(pedidos: Pedido[]): Pedido[] {
+    return pedidos.filter((p) => p.status === "CANCELADO" && ehOntem(p.statusAlteradoEm))
+}
+
+export interface Delta {
+    percentual: number | null // null quando não há base de comparação (ontem = 0) — evita "+infinito%"
+    direcao: "up" | "down" | "flat"
+}
+
+export function calcularDelta(hoje: number, ontem: number): Delta {
+    if (ontem === 0) {
+        return { percentual: null, direcao: hoje > 0 ? "up" : "flat" }
+    }
+    const percentual = Math.round(((hoje - ontem) / ontem) * 100)
+    return {
+        percentual,
+        direcao: percentual > 0 ? "up" : percentual < 0 ? "down" : "flat",
+    }
 }
 
 export function getProdutosAbaixoMinimo(
@@ -188,4 +223,131 @@ export function getAlertas(
     )
 
     return [...alertasAtraso, ...alertasEstoque].sort((a, b) => b.severidade - a.severidade)
+}
+
+// ─── Gráficos e resumo ──────────────────────────────────────────────────
+
+export interface StatusDistribuicao {
+    status: StatusPedido
+    label: string
+    quantidade: number
+    percentual: number
+}
+
+const STATUS_PIPELINE_ORDEM: StatusPedido[] = [
+    "CRIADO",
+    "RESERVADO",
+    "EM_SEPARACAO",
+    "EM_CONFERENCIA",
+    "CONFERIDO",
+    "EXPEDIDO",
+    "ENTREGUE",
+    "CANCELADO",
+]
+
+export function getPedidosPorStatus(pedidos: Pedido[]): StatusDistribuicao[] {
+    const total = pedidos.length
+    const contagem = new Map<StatusPedido, number>()
+    for (const status of STATUS_PIPELINE_ORDEM) contagem.set(status, 0)
+    for (const pedido of pedidos) {
+        contagem.set(pedido.status, (contagem.get(pedido.status) ?? 0) + 1)
+    }
+    return STATUS_PIPELINE_ORDEM.map((status) => {
+        const quantidade = contagem.get(status) ?? 0
+        return {
+            status,
+            label: STATUS_LABELS[status],
+            quantidade,
+            percentual: total === 0 ? 0 : Math.round((quantidade / total) * 100),
+        }
+    }).filter((s) => s.quantidade > 0) // esconde fatias vazias — legenda não fica poluída com "0 (0%)"
+}
+
+export interface PontoTendencia {
+    data: string // "dd/mm"
+    quantidade: number
+}
+
+export function getPedidosCriadosUltimosDias(pedidos: Pedido[], dias = 7): PontoTendencia[] {
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+
+    const pontos: PontoTendencia[] = []
+    for (let i = dias - 1; i >= 0; i--) {
+        const dia = new Date(hoje)
+        dia.setDate(dia.getDate() - i)
+        const quantidade = pedidos.filter((p) => {
+            const criado = new Date(p.criadoEm)
+            return (
+                criado.getFullYear() === dia.getFullYear() &&
+                criado.getMonth() === dia.getMonth() &&
+                criado.getDate() === dia.getDate()
+            )
+        }).length
+        pontos.push({
+            data: dia.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+            quantidade,
+        })
+    }
+    return pontos
+}
+
+export interface AtividadeRecente {
+    id: string
+    tipo: TipoPedidoEvento
+    descricao: string
+    pedidoNumero: number
+    pedidoId: string
+    dataHora: string
+}
+
+export function getAtividadeRecente(pedidos: Pedido[], limite = 8): AtividadeRecente[] {
+    const todos: AtividadeRecente[] = pedidos.flatMap((pedido) =>
+        pedido.eventos.map((evento) => ({
+            id: evento.id,
+            tipo: evento.tipo,
+            descricao: evento.descricao,
+            pedidoNumero: pedido.numero,
+            pedidoId: pedido.id,
+            dataHora: evento.dataHora,
+        })),
+    )
+    return todos
+        .sort((a, b) => new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime())
+        .slice(0, limite)
+}
+
+export interface ResumoPeriodo {
+    totalPedidos: number
+    totalFaturado: number
+    itensMovimentados: number
+    clientesAtendidos: number
+}
+
+export function getResumoPeriodo(pedidos: Pedido[], dias = 7): ResumoPeriodo {
+    const desde = new Date()
+    desde.setDate(desde.getDate() - dias)
+    desde.setHours(0, 0, 0, 0)
+
+    const doPeriodo = pedidos.filter((p) => new Date(p.criadoEm) >= desde)
+
+    // Só conta como "faturado" o que de fato saiu (ou chegou) — valorTotal de
+    // pedido ainda em andamento/cancelado não é receita realizada.
+    const totalFaturado = doPeriodo
+        .filter((p) => p.status === "EXPEDIDO" || p.status === "ENTREGUE")
+        .reduce((soma, p) => soma + p.valorTotal, 0)
+
+    const itensMovimentados = doPeriodo.reduce(
+        (soma, p) => soma + p.itens.reduce((s, item) => s + item.quantidade, 0),
+        0,
+    )
+
+    const clientesAtendidos = new Set(doPeriodo.map((p) => p.clienteId)).size
+
+    return {
+        totalPedidos: doPeriodo.length,
+        totalFaturado,
+        itensMovimentados,
+        clientesAtendidos,
+    }
 }

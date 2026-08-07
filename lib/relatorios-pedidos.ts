@@ -1,7 +1,7 @@
 import type { Pedido, StatusPedido } from "@/types/domain"
-import { MOCK_PEDIDOS } from "@/lib/mock-pedidos"
-import { MOCK_CLIENTES } from "@/lib/mock-clientes"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
+import { actionObterPedidos } from "@/lib/actions/pedidos"
+import { listarClientes } from "@/lib/actions/clientes"
+import { actionObterUsuarios } from "@/lib/actions/usuarios"
 import { compararComPeriodoAnterior, periodoAnteriorEquivalente, dataNoPeriodo, diferencaHoras } from "@/lib/relatorios-utils"
 
 export interface IndicadoresPedidos {
@@ -30,43 +30,42 @@ export interface LinhaTabelaPedidos {
 
 /**
  * Calcula indicadores do relatório de pedidos para uma empresa em um período.
- * Todos os cálculos filtram por empresaId antes de processar.
+ * Fonte: Prisma via actionObterPedidos/actionObterClientes/actionObterUsuarios
+ * (empresaId já escopado no server via sessão).
  */
-export function calcularIndicadoresPedidos(
+export async function calcularIndicadoresPedidos(
   empresaId: string,
   dataInicio: Date,
   dataFim: Date,
   filtros?: FiltrosPedidos
-): { indicadores: IndicadoresPedidos; tabela: LinhaTabelaPedidos[] } {
-  // Filtra pedidos por empresa (via vendedorId) e período
-  const pedidosEmpresa = MOCK_PEDIDOS.filter((pedido) => {
-    const vendedor = MOCK_USUARIOS.find((u) => u.id === pedido.vendedorId)
-    if (!vendedor || vendedor.empresaId !== empresaId) return false
-    if (!dataNoPeriodo(pedido.criadoEm, dataInicio, dataFim)) return false
+): Promise<{ indicadores: IndicadoresPedidos; tabela: LinhaTabelaPedidos[] }> {
+  const [pedidosResultado, clientesResultado, usuariosResultado] = await Promise.all([
+    actionObterPedidos(),
+    listarClientes(),
+    actionObterUsuarios(),
+  ])
+
+  const todosPedidos = pedidosResultado.ok && pedidosResultado.data ? pedidosResultado.data : []
+  const clientes = clientesResultado.ok && clientesResultado.data ? clientesResultado.data : []
+  const usuarios = usuariosResultado.ok && usuariosResultado.data ? usuariosResultado.data : []
+
+  const aplicarFiltros = (pedido: Pedido, dataInicioFiltro: Date, dataFimFiltro: Date) => {
+    if (!dataNoPeriodo(pedido.criadoEm, dataInicioFiltro, dataFimFiltro)) return false
     if (filtros?.status && pedido.status !== filtros.status) return false
     if (filtros?.clienteId && pedido.clienteId !== filtros.clienteId) return false
     if (filtros?.vendedorId && pedido.vendedorId !== filtros.vendedorId) return false
     return true
-  })
+  }
 
-  // Calcula período anterior equivalente
+  const pedidosEmpresa = todosPedidos.filter((pedido) => aplicarFiltros(pedido, dataInicio, dataFim))
+
   const { inicio: inicioAnterior, fim: fimAnterior } = periodoAnteriorEquivalente(
     dataInicio,
     dataFim
   )
 
-  // Filtra pedidos do período anterior
-  const pedidosAnterior = MOCK_PEDIDOS.filter((pedido) => {
-    const vendedor = MOCK_USUARIOS.find((u) => u.id === pedido.vendedorId)
-    if (!vendedor || vendedor.empresaId !== empresaId) return false
-    if (!dataNoPeriodo(pedido.criadoEm, inicioAnterior, fimAnterior)) return false
-    if (filtros?.status && pedido.status !== filtros.status) return false
-    if (filtros?.clienteId && pedido.clienteId !== filtros.clienteId) return false
-    if (filtros?.vendedorId && pedido.vendedorId !== filtros.vendedorId) return false
-    return true
-  })
+  const pedidosAnterior = todosPedidos.filter((pedido) => aplicarFiltros(pedido, inicioAnterior, fimAnterior))
 
-  // Função auxiliar para calcular métricas (excluindo cancelados para valor)
   const calcularMetricas = (pedidos: Pedido[]) => {
     const total = pedidos.length
     const cancelados = pedidos.filter((p) => p.status === "CANCELADO").length
@@ -80,16 +79,13 @@ export function calcularIndicadoresPedidos(
   const metricasAtual = calcularMetricas(pedidosEmpresa)
   const metricasAnterior = calcularMetricas(pedidosAnterior)
 
-  // Gera dados da tabela
   const tabela: LinhaTabelaPedidos[] = pedidosEmpresa.map((pedido) => {
-    const cliente = MOCK_CLIENTES.find((c) => c.id === pedido.clienteId)
-    const vendedor = MOCK_USUARIOS.find((u) => u.id === pedido.vendedorId)
-    
-    // Busca evento de expedição
+    const cliente = clientes.find((c) => c.id === pedido.clienteId)
+    const vendedor = usuarios.find((u) => u.id === pedido.vendedorId)
+
     const eventoExpedicao = pedido.eventos.find((e) => e.tipo === "PEDIDO_EXPEDIDO")
     const dataExpedicao = eventoExpedicao ? eventoExpedicao.dataHora : null
-    
-    // Calcula tempo entre criação e expedição (em horas)
+
     const tempoCriacaoExpedicao =
       pedido.status === "EXPEDIDO" && dataExpedicao
         ? diferencaHoras(pedido.criadoEm, dataExpedicao)

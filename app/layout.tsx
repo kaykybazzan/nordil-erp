@@ -1,6 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google'
+import { IBM_Plex_Sans, IBM_Plex_Mono, Poppins, Sora, Space_Grotesk } from "next/font/google"
 import './globals.css'
 import { SessionProvider } from 'next-auth/react'
 
@@ -15,6 +15,27 @@ const plexMono = IBM_Plex_Mono({
   subsets: ['latin'],
   weight: ['400', '500'],
   variable: '--font-plex-mono',
+  display: 'swap',
+})
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['600', '700', '800'],
+  variable: '--font-poppins',
+  display: 'swap',
+})
+
+const sora = Sora({
+  subsets: ['latin'],
+  weight: ['600', '700', '800'],
+  variable: '--font-sora',
+  display: 'swap',
+})
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['600', '700'],
+  variable: '--font-space-grotesk',
   display: 'swap',
 })
 
@@ -37,7 +58,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${plexSans.variable} ${plexMono.variable} bg-background`}
+      className={`${plexSans.variable} ${plexMono.variable} ${poppins.variable} ${sora.variable} ${spaceGrotesk.variable} bg-background`}
     >
       <body className="font-sans antialiased">
         <SessionProvider>

@@ -9,10 +9,10 @@ import type { Produto, UnidadeMedida } from "@/types/domain"
 import {
   MARCAS,
   UNIDADES,
-  formatBRL,
   fracionadoPadrao,
   parsePreco,
-} from "@/lib/mock-produtos"
+} from "@/lib/utils/produto-utils"
+import { formatBRL } from "@/lib/utils/formatters"
 import { useCurrentUser } from "@/lib/auth-context"
 
 export type SaveResult = { ok: true } | { ok: false; error: string }
@@ -40,6 +40,7 @@ export function ProdutoDrawer({
   const [fracionado, setFracionado] = useState(false)
   const [preco, setPreco] = useState("")
   const [custo, setCusto] = useState("")
+  const [estoqueMinimo, setEstoqueMinimo] = useState("")
   const [status, setStatus] = useState<Produto["status"]>("ativo")
 
   const [deactivateConfirm, setDeactivateConfirm] = useState(false)
@@ -64,6 +65,7 @@ export function ProdutoDrawer({
     setCusto(
       produto ? String(produto.custo).replace(".", ",") : "",
     )
+    setEstoqueMinimo(produto ? String(produto.estoqueMinimo) : "10")
     setStatus(produto?.status ?? "ativo")
     setDeactivateConfirm(false)
     setSaving(false)
@@ -72,12 +74,14 @@ export function ProdutoDrawer({
 
   const precoNum = parsePreco(preco)
   const custoNum = parsePreco(custo)
+  const estoqueMinimoNum = Number(estoqueMinimo)
   const nomeVazio = nome.trim().length === 0
   const marcaVazia = marca.trim().length === 0
   const precoInvalido = !Number.isFinite(precoNum) || precoNum <= 0
   const custoInvalido = !Number.isFinite(custoNum) || custoNum <= 0
+  const estoqueMinimoInvalido = !Number.isFinite(estoqueMinimoNum) || estoqueMinimoNum < 0
   const podeSalvar =
-    !nomeVazio && !marcaVazia && Boolean(unidade) && !precoInvalido && !custoInvalido && !saving
+  !nomeVazio && !marcaVazia && Boolean(unidade) && !precoInvalido && !custoInvalido && !estoqueMinimoInvalido && !saving
 
   // Ao trocar a unidade, assume o padrão de fracionamento (sobrescrevível).
   function handleUnidadeChange(u: UnidadeMedida) {
@@ -115,6 +119,7 @@ export function ProdutoDrawer({
       permiteFracionado: fracionado,
       custo: custoNum,
       precoVenda: precoNum,
+      estoqueMinimo: estoqueMinimoNum,
       status,
       estoqueAtual: produto?.estoqueAtual ?? 0, // Backend ignora este campo
     }
@@ -427,6 +432,31 @@ export function ProdutoDrawer({
                   )}
                 />
               </div>
+            </div>
+
+            {/* Estoque mínimo */}
+            <div className="mb-3">
+              <label
+                htmlFor="prd-estoque-minimo"
+                className="mb-1 block text-xs font-medium text-foreground"
+              >
+                Estoque mínimo <span className="text-destructive">*</span>
+              </label>
+              <input
+                id="prd-estoque-minimo"
+                inputMode="numeric"
+                value={estoqueMinimo}
+                onChange={(e) => setEstoqueMinimo(e.target.value.replace(/\D/g, ""))}
+                placeholder="10"
+                disabled={readonly}
+                className={cn(
+                  "h-9 w-full rounded-md border bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40",
+                  estoqueMinimo.length > 0 && estoqueMinimoInvalido
+                    ? "border-destructive"
+                    : "border-input focus-visible:border-ring",
+                  readonly && "bg-muted/50 text-muted-foreground cursor-not-allowed"
+                )}
+              />
             </div>
 
             {/* Permite fracionado */}

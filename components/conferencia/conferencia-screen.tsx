@@ -2,13 +2,13 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ClipboardCheck, CheckCircle2, AlertTriangle, X } from "lucide-react"
+import { ClipboardCheck, CheckCircle2, AlertTriangle, X, Plus, Minus } from "lucide-react"
 import { Dialog } from "@base-ui/react/dialog"
 import { cn } from "@/lib/utils"
-import { MOCK_CLIENTES } from "@/lib/mock-clientes"
-import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
 import { StatusBadgePedido } from "@/components/pedidos/shared/status-badge"
 import { usePedidosStore } from "@/lib/pedidos-store"
+import { useClientesStore } from "@/lib/clientes-store"
+import { useProdutosStore } from "@/lib/produtos-store"
 import { useCurrentUser } from "@/lib/auth-context"
 
 function formatBRL(v: number) {
@@ -26,16 +26,20 @@ export function ConferenciaScreen() {
   const router = useRouter()
   const currentUser = useCurrentUser()
 
-  const todosPedidos = usePedidosStore((s) => s.pedidos)
-  const confirmarConferencia = usePedidosStore((s) => s.confirmarConferencia)
-  const registrarDivergenciaConferencia = usePedidosStore(
-    (s) => s.registrarDivergenciaConferencia,
-  )
+  const filaConferencia = usePedidosStore((s) => s.filaConferencia)
+  const conferenciaAtual = usePedidosStore((s) => s.conferenciaAtual)
+  const carregarFilaConferencia = usePedidosStore((s) => s.carregarFilaConferencia)
+  const iniciarConferencia = usePedidosStore((s) => s.iniciarConferencia)
+  const registrarItemConferencia = usePedidosStore((s) => s.registrarItemConferencia)
+  const finalizarConferencia = usePedidosStore((s) => s.finalizarConferencia)
 
-  const [loading, setLoading] = useState(true)
-  const [conferindoId, setConferindoId] = useState<string | null>(null)
-  const [checklist, setChecklist] = useState<Record<string, boolean>>({})
-  const [divergencia, setDivergencia] = useState("")
+  const clientesStore = useClientesStore((s) => s.clientes)
+  const carregarClientes = useClientesStore((s) => s.carregarClientes)
+  const produtosStore = useProdutosStore((s) => s.produtos)
+  const carregarProdutos = useProdutosStore((s) => s.carregarProdutos)
+
+  const [loading, setLoading] = useState(true)  
+  const [quantidades, setQuantidades] = useState<Record<string, number>>({})
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | null>(null)
 
@@ -46,52 +50,49 @@ export function ConferenciaScreen() {
   }
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 700)
-    return () => clearTimeout(t)
-  }, [])
+    Promise.all([carregarFilaConferencia(), carregarClientes(), carregarProdutos()]).then(() => {
+      setLoading(false)
+    })
+  }, [carregarFilaConferencia, carregarClientes, carregarProdutos])
 
-  const pedidos = todosPedidos.filter((p) => p.status === "EM_CONFERENCIA")
-  const pedidoConferindo = pedidos.find((p) => p.id === conferindoId)
+  useEffect(() => {
+    if (conferenciaAtual) {
+      const initial: Record<string, number> = {}
+      conferenciaAtual.itens.forEach((item) => {
+        initial[item.id] = item.quantidadeConferida ?? item.quantidadeSeparada
+      })
+      setQuantidades(initial)
+    } else {
+      setQuantidades({})
+    }
+  }, [conferenciaAtual])
 
-  function abrirConferencia(pedido: (typeof pedidos)[number]) {
-    const initial: Record<string, boolean> = {}
-    pedido.itens.forEach((i) => { initial[i.id] = false })
-    setChecklist(initial)
-    setDivergencia("")
-    setConferindoId(pedido.id)
+  function abrirConferencia(pedidoId: string) {
+    iniciarConferencia(pedidoId)
   }
 
-  function toggleItem(itemId: string) {
-    setChecklist((prev) => ({ ...prev, [itemId]: !prev[itemId] }))
+  function fecharConferencia() {
+    setQuantidades({})
   }
 
-  const todosConferidos = pedidoConferindo
-    ? pedidoConferindo.itens
-        .filter((i) => i.status !== "CANCELADO")
-        .every((i) => checklist[i.id])
+  function incrementarQuantidade(itemId: string) {
+    setQuantidades((prev) => ({ ...prev, [itemId]: (prev[itemId] || 0) + 1 }))
+  }
+
+  function decrementarQuantidade(itemId: string) {
+    setQuantidades((prev) => ({ ...prev, [itemId]: Math.max(0, (prev[itemId] || 0) - 1) }))
+  }
+
+  function setQuantidadeManual(itemId: string, valor: string) {
+    const num = parseInt(valor, 10)
+    if (!isNaN(num) && num >= 0) {
+      setQuantidades((prev) => ({ ...prev, [itemId]: num }))
+    }
+  }
+
+  const todosConferidos = conferenciaAtual
+    ? conferenciaAtual.itens.every((item) => quantidades[item.id] !== undefined)
     : false
-
-  async function confirmarConferenciaHandler() {
-    if (!conferindoId) return
-    const resultado = await confirmarConferencia(conferindoId)
-    if (!resultado.ok) {
-      showToast(resultado.error || "Erro ao confirmar conferência")
-      return
-    }
-    setConferindoId(null)
-    showToast("Conferência confirmada. Pedido pronto para expedição.")
-  }
-
-  async function registrarDivergenciaHandler() {
-    if (!conferindoId || !divergencia.trim()) return
-    const resultado = await registrarDivergenciaConferencia(conferindoId, divergencia.trim())
-    if (!resultado.ok) {
-      showToast(resultado.error || "Erro ao registrar divergência")
-      return
-    }
-    setConferindoId(null)
-    showToast("Divergência registrada. Pedido sinalizado para revisão.")
-  }
 
   if (loading) {
     return (
@@ -103,7 +104,7 @@ export function ConferenciaScreen() {
     )
   }
 
-  if (pedidos.length === 0) {
+  if (filaConferencia.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
         <ClipboardCheck className="h-10 w-10 text-muted-foreground" />
@@ -118,12 +119,12 @@ export function ConferenciaScreen() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-foreground">Conferência</h1>
         <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-          {pedidos.length} pedido{pedidos.length !== 1 ? "s" : ""}
+          {filaConferencia.length} pedido{filaConferencia.length !== 1 ? "s" : ""}
         </span>
       </div>
 
-      {pedidos.map((pedido) => {
-        const cliente = MOCK_CLIENTES.find((c) => c.id === pedido.clienteId)
+      {filaConferencia.map((pedido) => {
+        const cliente = clientesStore.find((c) => c.id === pedido.clienteId)
         return (
           <div
             key={pedido.id}
@@ -150,7 +151,7 @@ export function ConferenciaScreen() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => abrirConferencia(pedido)}
+                  onClick={() => abrirConferencia(pedido.id)}
                   className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity"
                 >
                   <ClipboardCheck className="h-3.5 w-3.5" />
@@ -163,19 +164,19 @@ export function ConferenciaScreen() {
       })}
 
       {/* Modal de conferência */}
-      <Dialog.Root open={!!conferindoId} onOpenChange={(open) => { if (!open) setConferindoId(null) }}>
+      <Dialog.Root open={!!conferenciaAtual} onOpenChange={(open) => { if (!open) fecharConferencia() }}>
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" />
           <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-6 shadow-xl">
-            {pedidoConferindo && (
+            {conferenciaAtual && (
               <>
                 <div className="mb-5 flex items-start justify-between">
                   <div>
                     <Dialog.Title className="text-base font-semibold text-foreground">
-                      Conferência — Pedido #{pedidoConferindo.numero}
+                      Conferência — Pedido #{filaConferencia.find((p) => p.id === conferenciaAtual.pedidoId)?.numero ?? conferenciaAtual.pedidoId}
                     </Dialog.Title>
                     <p className="text-sm text-muted-foreground">
-                      Marque todos os itens conferidos antes de confirmar.
+                      Informe a quantidade conferida de cada item.
                     </p>
                   </div>
                   <Dialog.Close className="rounded-lg p-1 text-muted-foreground hover:bg-muted transition-colors">
@@ -183,77 +184,78 @@ export function ConferenciaScreen() {
                   </Dialog.Close>
                 </div>
 
-                {/* Checklist */}
+                {/* Lista de itens com quantidade */}
                 <div className="mb-5 max-h-60 space-y-2 overflow-y-auto">
-                  {pedidoConferindo.itens.map((item) => {
-                    const produto = MOCK_PRODUTOS.find((p) => p.id === item.produtoId)
-                    const disabled = item.status === "CANCELADO"
+                  {conferenciaAtual.itens.map((item) => {
+                    const produto = produtosStore.find((p) => p.id === item.produtoId)
+                    const quantidadeAtual = quantidades[item.id] ?? item.quantidadeSeparada
+                    const divergente = quantidadeAtual !== item.quantidadeSeparada
                     return (
-                      <label
+                      <div
                         key={item.id}
                         className={cn(
-                          "flex cursor-pointer items-center gap-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 transition-colors",
-                          checklist[item.id] && "border-[hsl(var(--success))]/40 bg-[hsl(var(--success))]/5",
-                          disabled && "opacity-50 cursor-not-allowed",
+                          "flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5",
+                          divergente && "border-[hsl(var(--warning))]/40 bg-[hsl(var(--warning))]/5",
                         )}
                       >
-                        <input
-                          type="checkbox"
-                          checked={checklist[item.id] ?? false}
-                          onChange={() => !disabled && toggleItem(item.id)}
-                          disabled={disabled}
-                          className="h-4 w-4 accent-[hsl(var(--success))]"
-                        />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-foreground">
                             {produto?.nome ?? item.produtoId}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {item.quantidade} {produto?.unidadeMedida}
+                            Separado: {item.quantidadeSeparada} {produto?.unidadeMedida}
                           </p>
                         </div>
-                        {checklist[item.id] && (
-                          <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-[hsl(var(--success))]" />
-                        )}
-                      </label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => decrementarQuantidade(item.id)}
+                            className="rounded-md border border-border bg-background px-2 py-1 text-muted-foreground hover:bg-muted transition-colors"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </button>
+                          <input
+                            type="number"
+                            value={quantidadeAtual}
+                            onChange={(e) => setQuantidadeManual(item.id, e.target.value)}
+                            className="w-16 rounded-md border border-border bg-background px-2 py-1 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => incrementarQuantidade(item.id)}
+                            className="rounded-md border border-border bg-background px-2 py-1 text-muted-foreground hover:bg-muted transition-colors"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
                     )
                   })}
-                </div>
-
-                {/* Divergência */}
-                <div className="mb-5">
-                  <label className="mb-1.5 block text-xs font-medium text-foreground">
-                    Registrar divergência (opcional)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={divergencia}
-                    onChange={(e) => setDivergencia(e.target.value)}
-                    placeholder="Descreva a divergência encontrada..."
-                    className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
                 </div>
 
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={confirmarConferenciaHandler}
+                    onClick={async () => {
+                      for (const item of conferenciaAtual.itens) {
+                        const quantidade = quantidades[item.id]
+                        if (quantidade !== undefined) {
+                          await registrarItemConferencia({
+                            conferenciaId: conferenciaAtual.id,
+                            conferenciaItemId: item.id,
+                            quantidadeConferida: quantidade,
+                          })
+                        }
+                      }
+                      await finalizarConferencia(conferenciaAtual.id)
+                      showToast("Conferência concluída com sucesso.")
+                    }}
                     disabled={!todosConferidos}
                     className="flex items-center gap-1.5 rounded-lg bg-[hsl(var(--success))] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
                   >
                     <CheckCircle2 className="h-4 w-4" />
-                    Confirmar conferência
+                    Finalizar conferência
                   </button>
-                  {divergencia.trim() && (
-                    <button
-                      type="button"
-                      onClick={registrarDivergenciaHandler}
-                      className="flex items-center gap-1.5 rounded-lg border border-[hsl(var(--warning))]/50 bg-[hsl(var(--warning))]/8 px-4 py-2 text-sm font-medium text-[hsl(var(--warning))] hover:bg-[hsl(var(--warning))]/15 transition-colors"
-                    >
-                      <AlertTriangle className="h-4 w-4" />
-                      Registrar divergência
-                    </button>
-                  )}
                 </div>
               </>
             )}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { onlyDigits } from "@/lib/mock-clientes"
+import { onlyDigits } from "@/lib/utils/cliente-utils"
 import { DataTable, type DataTableColumn, type DataTableSort } from "@/components/ui/data-table"
 import { ClienteStatusBadge } from "@/components/status-badges"
 import { Button } from "@/components/ui/button"

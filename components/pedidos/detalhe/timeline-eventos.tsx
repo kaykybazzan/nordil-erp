@@ -1,9 +1,10 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { CircleDot, ShoppingCart, Package, ClipboardCheck, Truck, CheckCircle2, XCircle, AlertTriangle, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { PedidoEvento } from "@/types/domain"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
+import { actionObterUsuarios } from "@/lib/actions/usuarios"
 
 function formatDataHora(iso: string): string {
   return new Date(iso).toLocaleString("pt-BR", {
@@ -34,6 +35,16 @@ interface TimelineEventosProps {
 }
 
 export function TimelineEventos({ eventos }: TimelineEventosProps) {
+  const [usuarios, setUsuarios] = useState<{ id: string; nome: string }[]>([])
+
+  useEffect(() => {
+    actionObterUsuarios().then((resultado) => {
+      if (resultado.ok && resultado.data) {
+        setUsuarios(resultado.data)
+      }
+    })
+  }, [])
+
   const sorted = [...eventos].sort(
     (a, b) => new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime(),
   )
@@ -42,7 +53,7 @@ export function TimelineEventos({ eventos }: TimelineEventosProps) {
     <div className="space-y-0">
       {sorted.map((evt, idx) => {
         const meta = TIPO_META[evt.tipo] ?? DEFAULT_META
-        const usuario = MOCK_USUARIOS.find((u) => u.id === evt.usuarioId)
+        const usuario = usuarios.find((u) => u.id === evt.usuarioId)
         const isLast = idx === sorted.length - 1
 
         return (

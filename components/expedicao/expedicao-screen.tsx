@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Truck, CheckCircle2, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { MOCK_CLIENTES } from "@/lib/mock-clientes"
+import { listarClientes } from "@/lib/actions/clientes"
 import { StatusBadgePedido } from "@/components/pedidos/shared/status-badge"
 import { usePedidosStore } from "@/lib/pedidos-store"
 import { useCurrentUser } from "@/lib/auth-context"
@@ -32,6 +32,7 @@ export function ExpedicaoScreen() {
   const [transportadoras, setTransportadoras] = useState<Record<string, string>>({})
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | null>(null)
+  const [clientes, setClientes] = useState<any[]>([])
 
   function showToast(msg: string) {
     if (toastTimer.current) clearTimeout(toastTimer.current)
@@ -41,6 +42,11 @@ export function ExpedicaoScreen() {
 
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 700)
+    listarClientes().then((result) => {
+      if (result.ok && result.data) {
+        setClientes(result.data)
+      }
+    })
     return () => clearTimeout(t)
   }, [])
 
@@ -101,7 +107,7 @@ export function ExpedicaoScreen() {
       </div>
 
       {pedidos.map((pedido) => {
-        const cliente = MOCK_CLIENTES.find((c) => c.id === pedido.clienteId)
+        const cliente = clientes.find((c) => c.id === pedido.clienteId)
         const transp = transportadoras[pedido.id] ?? ""
 
         return (

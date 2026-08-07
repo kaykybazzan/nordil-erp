@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
+import Image from "next/image"
 import { TrocarSenhaCard } from "@/components/auth/trocar-senha-card"
 import { useAuth } from "@/lib/auth-context"
 import { getHomeRoute } from "@/lib/rbac"
@@ -60,8 +61,13 @@ export default function TrocarSenhaPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
-      <TrocarSenhaCard onSubmit={handleSubmit} isLoading={isLoading} />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-12">
+      <Image src="/troca-senha-bg.png" alt="" fill priority sizes="100vw" className="object-cover" />
+      <div className="absolute inset-0 bg-slate-950/35" />
+
+      <div className="relative z-10">
+        <TrocarSenhaCard onSubmit={handleSubmit} isLoading={isLoading} erro={erro} />
+      </div>
     </div>
   )
 }

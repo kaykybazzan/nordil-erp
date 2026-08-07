@@ -36,6 +36,9 @@ export interface Produto {
   status: "ativo" | "inativo"
   estoqueAtual: number
   corredor?: string
+  categoria?: string
+  fornecedor?: string
+  estoqueMinimo: number
 }
 
 export interface Fornecedor {
@@ -69,7 +72,6 @@ export interface Usuario {
   id: string
   nome: string
   email: string
-  senha: string
   precisaTrocarSenha: boolean
   cargo?: string
   empresaId: string
@@ -104,6 +106,9 @@ export interface ItemPedido {
   precoUnitario: number
   desconto: number
   status: StatusItemPedido
+  quantidadeSeparada?: number   // preenchido só ao finalizar separação (Módulo 12).
+                                  // undefined/null = ainda não separado.
+                                  // ruptura = quantidade - quantidadeSeparada > 0
 }
 
 export interface EnderecoPedido {
@@ -157,6 +162,30 @@ export interface Pedido {
   eventos: PedidoEvento[]
   motivoCancelamento?: string
   separadorId?: string
+  conferenteId?: string
+}
+
+
+export type StatusConferencia = "EM_ANDAMENTO" | "CONCLUIDA_SEM_DIVERGENCIA" | "CONCLUIDA_COM_DIVERGENCIA"
+
+export interface ConferenciaItem {
+  id: string
+  itemPedidoId: string
+  produtoId: string
+  quantidadeSolicitada: number
+  quantidadeSeparada: number
+  quantidadeConferida: number | null
+  divergente: boolean | null
+}
+
+export interface Conferencia {
+  id: string
+  pedidoId: string
+  conferenteId: string
+  iniciadoEm: string
+  finalizadoEm: string | null
+  status: StatusConferencia
+  itens: ConferenciaItem[]
 }
 
 export interface InventarioEstoque {

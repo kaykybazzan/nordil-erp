@@ -1,1 +1,1 @@
-ALTER TABLE "ItemPedido" ADD COLUMN "quantidadeSeparada" DECIMAL(12,3);
+ALTER TABLE "itens_pedido" ADD COLUMN "quantidadeSeparada" DECIMAL(12,3);

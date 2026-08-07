@@ -11,15 +11,13 @@ const iniciarSeparacaoSchema = z.object({
   pedidoId: z.string().min(1),
 })
 
-const confirmarItemSchema = z.object({
-  pedidoId: z.string().min(1),
-  itemPedidoId: z.string().min(1),
-  quantidadeInformada: z.number().nonnegative(),
-})
+
 
 const devolverAFilaSchema = z.object({
   pedidoId: z.string().min(1),
 })
+
+
 
 const finalizarSeparacaoSchema = z.object({
   pedidoId: z.string().min(1),
@@ -169,63 +167,6 @@ export async function actionIniciarSeparacao(input: { pedidoId: string }) {
   }
 }
 
-export async function actionConfirmarItemSeparacao(input: {
-  pedidoId: string
-  itemPedidoId: string
-  quantidadeInformada: number
-}) {
-  const session = await auth()
-  if (!session?.user?.empresaId || !session.user.id) {
-    return { ok: false, error: "Não autenticado." }
-  }
-
-  const validationResult = confirmarItemSchema.safeParse(input)
-  if (!validationResult.success) {
-    return { ok: false, error: "Dados inválidos." }
-  }
-
-  try {
-    const pedido = await prisma.pedido.findFirst({
-      where: { id: input.pedidoId, empresaId: session.user.empresaId },
-      include: { itens: true, eventos: true },
-    })
-
-    if (!pedido) {
-      return { ok: false, error: "Pedido não encontrado." }
-    }
-
-    const item = pedido.itens.find((i) => i.id === input.itemPedidoId)
-    if (!item) {
-      return { ok: false, error: "Item não encontrado." }
-    }
-
-    // Validação: respeita fracionamento do produto
-    const produto = await prisma.produto.findFirst({
-      where: { id: item.produtoId, empresaId: session.user.empresaId },
-    })
-
-    if (!produto) {
-      return { ok: false, error: "Produto não encontrado." }
-    }
-
-    if (!produto.permiteFracionado && !Number.isInteger(input.quantidadeInformada)) {
-      return { ok: false, error: "Produto não permite fracionamento." }
-    }
-
-    const quantidadeSolicitada = Number(item.quantidade)
-    if (input.quantidadeInformada > quantidadeSolicitada) {
-      return { ok: false, error: "Quantidade informada não pode exceder a quantidade solicitada." }
-    }
-
-    // A confirmação é apenas no draft local (store), não persiste aqui
-    // Esta action serve apenas para validação
-    return { ok: true, data: null }
-  } catch (error) {
-    console.error("Erro ao confirmar item separação:", error)
-    return { ok: false, error: "Erro ao confirmar item separação." }
-  }
-}
-
 export async function actionDevolverAFila(input: { pedidoId: string }) {
   const session = await auth()
   if (!session?.user?.empresaId || !session.user.id) {
@@ -320,7 +261,28 @@ export async function actionFinalizarSeparacao(input: {
       if (!itemOriginal) {
         return { ok: false, error: `Item ${itemInput.itemPedidoId} não encontrado no pedido.` }
       }
+
+      const produto = await prisma.produto.findUnique({ where: { id: itemOriginal.produtoId } })
+      if (!produto) {
+        return { ok: false, error: `Produto do item ${itemInput.itemPedidoId} não encontrado.` }
+      }
+
       const quantidadeOriginal = Number(itemOriginal.quantidade)
+
+      if (itemInput.quantidadeSeparada > quantidadeOriginal) {
+        return {
+          ok: false,
+          error: `Quantidade separada do item ${itemInput.itemPedidoId} não pode exceder a quantidade solicitada.`,
+        }
+      }
+
+      if (!produto.permiteFracionado && !Number.isInteger(itemInput.quantidadeSeparada)) {
+        return {
+          ok: false,
+          error: `Produto "${produto.nome}" não permite fracionamento.`,
+        }
+      }
+
       if (itemInput.quantidadeSeparada < quantidadeOriginal) {
         itensComRuptura.push(itemInput)
       }

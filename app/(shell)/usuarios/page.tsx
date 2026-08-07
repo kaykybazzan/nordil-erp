@@ -2,13 +2,13 @@
 
 import { useMemo, useState, useEffect } from "react"
 import { useCurrentUser } from "@/lib/auth-context"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
+import { useUsuariosStore } from "@/lib/usuarios-store"
 import { DataTable, type DataTableColumn, type DataTableSort } from "@/components/ui/data-table"
 import { UsuarioStatusBadge } from "@/components/status-badges"
 import { Button } from "@/components/ui/button"
 import { UsuarioDrawer } from "@/components/usuarios/usuario-drawer"
 import { AlternarStatusDialog } from "@/components/usuarios/alternar-status-dialog"
-import { emailDuplicado, alternarStatusUsuario, gerarSenhaTemporaria } from "@/lib/usuarios"
+import { emailDuplicado } from "@/lib/usuarios"
 import { actionRegistrarAuditoria } from "@/lib/actions/auditoria"
 import type { Usuario, PapelUsuario, FuncaoUsuario } from "@/types/domain"
 import { useToast } from "@/components/ui/simple-toast"
@@ -51,7 +51,12 @@ export default function UsuariosPage() {
   const currentUser = useCurrentUser()
   const { showToast, Toaster } = useToast()
 
-  const [usuarios, setUsuarios] = useState<Usuario[]>(MOCK_USUARIOS)
+  const { usuarios, carregando, carregarUsuarios, criarUsuario, atualizarUsuario, alternarStatus } =
+    useUsuariosStore()
+
+  useEffect(() => {
+    carregarUsuarios()
+  }, [carregarUsuarios])
   const [buscaInput, setBuscaInput] = useState("")
   const [busca, setBusca] = useState("")
   const [roleFiltro, setRoleFiltro] = useState<Set<PapelUsuario>>(new Set())
@@ -118,79 +123,26 @@ export default function UsuariosPage() {
     )
   }
 
-  function handleSalvar(
+  async function handleSalvar(
     dados: Omit<Usuario, "id" | "empresaId">,
     usuarioId?: string,
-  ): { ok: true } | { ok: false; error: string } {
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
     if (emailDuplicado(usuarios, dados.email, usuarioId)) {
       return { ok: false, error: "Já existe um usuário com esse e-mail." }
     }
 
     if (usuarioId) {
-      const usuarioAntigo = usuarios.find((u) => u.id === usuarioId)
-      const camposAlterados: { campo: string; valorAnterior: string; valorNovo: string }[] = []
-
-      if (usuarioAntigo) {
-        // Comparar campos e registrar alterações (exceto senha)
-        if (usuarioAntigo.nome !== dados.nome) {
-          camposAlterados.push({ campo: "nome", valorAnterior: usuarioAntigo.nome, valorNovo: dados.nome })
-        }
-        if (usuarioAntigo.email !== dados.email) {
-          camposAlterados.push({ campo: "email", valorAnterior: usuarioAntigo.email, valorNovo: dados.email })
-        }
-        if (usuarioAntigo.cargo !== dados.cargo) {
-          camposAlterados.push({ campo: "cargo", valorAnterior: usuarioAntigo.cargo ?? "", valorNovo: dados.cargo ?? "" })
-        }
-        if (usuarioAntigo.role !== dados.role) {
-          camposAlterados.push({ campo: "role", valorAnterior: usuarioAntigo.role, valorNovo: dados.role })
-        }
-        if (usuarioAntigo.funcao !== dados.funcao) {
-          camposAlterados.push({ campo: "funcao", valorAnterior: usuarioAntigo.funcao, valorNovo: dados.funcao })
-        }
-        if (usuarioAntigo.status !== dados.status) {
-          camposAlterados.push({ campo: "status", valorAnterior: usuarioAntigo.status, valorNovo: dados.status })
-        }
-      }
-
-      setUsuarios((prev) => prev.map((u) => (u.id === usuarioId ? { ...u, ...dados } : u)))
+      const result = await atualizarUsuario(usuarioId, dados)
+      if (!result.ok) return result
       showToast("Usuário atualizado.", "success")
-
-      // Registrar auditoria se houver alterações
-      if (camposAlterados.length > 0 && usuarioAntigo) {
-        actionRegistrarAuditoria({
-          modulo: "USUARIOS",
-          acao: "ATUALIZADO",
-          entidadeId: usuarioId,
-          descricao: `Usuário ${usuarioAntigo.nome} atualizado.`,
-          camposAlterados,
-        }).then((result) => {
-          if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
-        })
-      }
-    } else {
-      const senhaGerada = gerarSenhaTemporaria()
-      const novo: Usuario = {
-        ...dados,
-        senha: senhaGerada,
-        precisaTrocarSenha: true,
-        id: `usr-${Date.now()}`,
-        empresaId: currentUser.empresaId,
-      }
-      setUsuarios((prev) => [...prev, novo])
-      setSenhaTemporaria(senhaGerada)
-      setCopiado(false)
-
-      // Registrar auditoria
-      actionRegistrarAuditoria({
-        modulo: "USUARIOS",
-        acao: "CRIADO",
-        entidadeId: novo.id,
-        descricao: `Usuário ${novo.nome} criado com função ${novo.funcao}.`,
-      }).then((result) => {
-        if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
-      })
+      return { ok: true }
     }
 
+    const result = await criarUsuario(dados)
+    if (!result.ok) return result
+
+    setSenhaTemporaria(result.senhaTemporaria)
+    setCopiado(false)
     return { ok: true }
   }
 
@@ -207,28 +159,18 @@ export default function UsuariosPage() {
     setCopiado(false)
   }
 
-  function handleConfirmarAlternarStatus(usuarioId: string) {
+  async function handleConfirmarAlternarStatus(usuarioId: string) {
     const alvo = usuarios.find((u) => u.id === usuarioId)
-    const novoStatus = alvo?.status === "ativo" ? "inativo" : "ativo"
-    
-    setUsuarios((prev) => prev.map((u) => (u.id === usuarioId ? alternarStatusUsuario(u) : u)))
-    showToast(alvo?.status === "ativo" ? "Usuário inativado." : "Usuário ativado.", "success")
-    
-    // Registrar auditoria
-    if (alvo) {
-      actionRegistrarAuditoria({
-        modulo: "USUARIOS",
-        acao: "STATUS_ALTERADO",
-        entidadeId: usuarioId,
-        descricao: `Usuário ${alvo.nome} ${novoStatus === "ativo" ? "ativado" : "inativado"}.`,
-        camposAlterados: [
-          { campo: "status", valorAnterior: alvo.status, valorNovo: novoStatus },
-        ],
-      }).then((result) => {
-        if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
-      })
+    if (!alvo) return
+
+    const result = await alternarStatus(alvo)
+    if (!result.ok) {
+      showToast(result.error, "error")
+      setUsuarioParaAlternar(null)
+      return
     }
-    
+
+    showToast(alvo.status === "ativo" ? "Usuário inativado." : "Usuário ativado.", "success")
     setUsuarioParaAlternar(null)
   }
 

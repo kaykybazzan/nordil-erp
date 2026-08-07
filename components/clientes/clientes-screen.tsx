@@ -12,7 +12,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Cliente } from "@/types/domain"
-import { onlyDigits, tipoDocumento } from "@/lib/mock-clientes"
+import { onlyDigits, tipoDocumento } from "@/lib/utils/cliente-utils"
 import { StatusBadge } from "./status-badge"
 import { ClienteDrawer, type SaveResult } from "./cliente-drawer"
 import { useClientesStore } from "@/lib/clientes-store"

@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { type LucideIcon, AlertTriangle } from "lucide-react"
+import { type LucideIcon, AlertTriangle, ArrowUp, ArrowDown } from "lucide-react"
 import { cn } from "@/lib/utils"
+import type { Delta } from "@/lib/dashboard"
 
 interface KpiCardProps {
     label: string
@@ -11,8 +12,17 @@ interface KpiCardProps {
     criterio: string
     href: string
     icon: LucideIcon
-    tone?: "default" | "danger"
+    tone?: "default" | "info" | "warning" | "success" | "danger"
     status?: "loading" | "success" | "error"
+    delta?: Delta
+}
+
+const iconToneClasses: Record<NonNullable<KpiCardProps["tone"]>, string> = {
+    default: "bg-muted text-muted-foreground",
+    info: "bg-info/10 text-info",
+    warning: "bg-warning/10 text-warning",
+    success: "bg-success/10 text-success",
+    danger: "bg-destructive/10 text-destructive",
 }
 
 export function KpiCard({
@@ -23,12 +33,15 @@ export function KpiCard({
     icon: Icon,
     tone = "default",
     status = "success",
+    delta,
 }: KpiCardProps) {
     const [showTip, setShowTip] = useState(false)
 
     if (status === "loading") return <KpiCardSkeleton />
 
-    const isDanger = tone === "danger" && value > 0 && status !== "error"
+    const isActiveAlert = tone !== "default" && value > 0 && status !== "error"
+    const effectiveTone: NonNullable<KpiCardProps["tone"]> =
+        status === "error" ? "default" : isActiveAlert ? tone : "default"
 
     const conteudo = (
         <div
@@ -46,8 +59,29 @@ export function KpiCard({
                 {status === "error" ? (
                     <span className="text-2xl font-semibold text-muted-foreground">—</span>
                 ) : (
-                    <span className={cn("text-2xl font-semibold tabular-nums", isDanger && "text-destructive")}>
+                    <span
+                        className={cn(
+                            "text-2xl font-semibold tabular-nums",
+                            effectiveTone === "danger" && "text-destructive",
+                            effectiveTone === "warning" && "text-warning",
+                        )}
+                    >
                         {value}
+                    </span>
+                )}
+                {delta && status === "success" && (
+                    <span
+                        className={cn(
+                            "inline-flex items-center gap-0.5 text-xs font-medium",
+                            delta.direcao === "up" && "text-success",
+                            delta.direcao === "down" && "text-destructive",
+                            delta.direcao === "flat" && "text-muted-foreground",
+                        )}
+                    >
+                        {delta.direcao === "up" && <ArrowUp className="size-3" />}
+                        {delta.direcao === "down" && <ArrowDown className="size-3" />}
+                        {delta.percentual === null ? "novo" : `${Math.abs(delta.percentual)}%`}
+                        <span className="font-normal text-muted-foreground">vs ontem</span>
                     </span>
                 )}
             </div>
@@ -55,11 +89,7 @@ export function KpiCard({
             <div
                 className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-lg",
-                    status === "error"
-                        ? "bg-muted text-muted-foreground"
-                        : isDanger
-                            ? "bg-destructive/10 text-destructive"
-                            : "bg-muted text-muted-foreground",
+                    iconToneClasses[status === "error" ? "default" : effectiveTone],
                 )}
             >
                 {status === "error" ? <AlertTriangle className="h-5 w-5" /> : <Icon className="h-5 w-5" />}

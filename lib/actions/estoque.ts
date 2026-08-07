@@ -10,7 +10,7 @@ import { z } from "zod"
 const aplicarMovimentacaoSchema = z.object({
   produtoId: z.string().min(1),
   tipo: z.enum(["RESERVA", "LIBERACAO_RESERVA", "SAIDA", "ENTRADA", "ENTRADA_DEVOLUCAO", "AJUSTE"]),
-  quantidade: z.number().int().positive(),
+  quantidade: z.number().positive(),
   pedidoId: z.string().optional(),
   direcao: z.enum(["ENTRADA", "SAIDA"]).optional(),
 })

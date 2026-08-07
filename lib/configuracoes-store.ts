@@ -1,151 +1,67 @@
 import { create } from "zustand"
-import { persist } from "zustand/middleware"
-import type { Configuracoes, Usuario } from "@/types/domain"
-import { actionRegistrarAuditoria } from "./actions/auditoria"
+import type { Configuracoes } from "@/types/domain"
+import { actionObterConfiguracoes } from "./actions/configuracoes"
+import { actionAtualizarRegrasOperacionais } from "./actions/configuracoes"
+import { actionAtualizarDadosEmpresa } from "./actions/configuracoes"
+import { actionAtualizarDeposito } from "./actions/configuracoes"
+import { actionAtualizarSeguranca } from "./actions/configuracoes"
 
-const CONFIGURACOES_PADRAO: Configuracoes = {
-    empresaId: "emp-001",
-    regrasOperacionais: {
-        permitirAutoConferencia: false,
-        permitirAprovacaoExcepcionalDivergencia: false,
-    },
-    dadosEmpresa: {
-        razaoSocial: "",
-        nomeFantasia: undefined,
-        cnpj: "",
-        email: undefined,
-        telefone: undefined,
-        endereco: undefined,
-    },
-    deposito: {
-        nome: "",
-        endereco: { logradouro: "", numero: "", bairro: "", cidade: "", uf: "", cep: "" },
-        responsavel: undefined,
-    },
-    seguranca: {
-        tempoExpiracaoSessaoMinutos: 30,
-        politicaSenhaMinima: "MEDIA",
-        duracaoSenhaTemporariaDias: 7,
-    },
-}
-
-function formatarValor(valor: unknown): string {
-    if (valor === undefined || valor === null || valor === "") return "—"
-    if (typeof valor === "boolean") return valor ? "Sim" : "Não"
-    if (typeof valor === "object") return JSON.stringify(valor)
-    return String(valor)
-}
-
-function diffCampos(
-    anterior: Record<string, unknown>,
-    novo: Record<string, unknown>,
-): { campo: string; valorAnterior: string; valorNovo: string }[] {
-    const campos: { campo: string; valorAnterior: string; valorNovo: string }[] = []
-    for (const chave of Object.keys(novo)) {
-        if (JSON.stringify(anterior[chave]) !== JSON.stringify(novo[chave])) {
-            campos.push({
-                campo: chave,
-                valorAnterior: formatarValor(anterior[chave]),
-                valorNovo: formatarValor(novo[chave]),
-            })
-        }
-    }
-    return campos
-}
 
 interface ConfiguracoesState {
-    configuracoes: Configuracoes
-    atualizarRegrasOperacionais: (valores: Configuracoes["regrasOperacionais"], usuario: Usuario) => void
-    atualizarDadosEmpresa: (valores: Configuracoes["dadosEmpresa"], usuario: Usuario) => void
-    atualizarDeposito: (valores: Configuracoes["deposito"], usuario: Usuario) => void
-    atualizarSeguranca: (valores: Configuracoes["seguranca"], usuario: Usuario) => void
+    configuracoes: Configuracoes | null
+    loading: boolean
+    error: string | null
+    carregarConfiguracoes: () => Promise<void>
+    atualizarRegrasOperacionais: (valores: Configuracoes["regrasOperacionais"]) => Promise<{ ok: boolean; error?: string }>
+    atualizarDadosEmpresa: (valores: Configuracoes["dadosEmpresa"]) => Promise<{ ok: boolean; error?: string }>
+    atualizarDeposito: (valores: Configuracoes["deposito"]) => Promise<{ ok: boolean; error?: string }>
+    atualizarSeguranca: (valores: Configuracoes["seguranca"]) => Promise<{ ok: boolean; error?: string }>
 }
 
-export const useConfiguracoesStore = create<ConfiguracoesState>()(
-    persist(
-        (set, get) => ({
-            configuracoes: CONFIGURACOES_PADRAO,
+export const useConfiguracoesStore = create<ConfiguracoesState>()((set, get) => ({
+    configuracoes: null,
+    loading: false,
+    error: null,
 
-            atualizarRegrasOperacionais: (valores, usuario) => {
-                const atual = get().configuracoes
-                const camposAlterados = diffCampos(atual.regrasOperacionais, valores)
-                if (camposAlterados.length === 0) return
+    carregarConfiguracoes: async () => {
+        set({ loading: true, error: null })
+        const result = await actionObterConfiguracoes()
+        if (result.ok) {
+            set({ configuracoes: result.data, loading: false })
+        } else {
+            set({ error: result.error, loading: false })
+        }
+    },
 
-                actionRegistrarAuditoria({
-                    modulo: "CONFIGURACOES",
-                    acao: "ATUALIZADO",
-                    entidadeId: atual.empresaId,
-                    descricao: "Regras operacionais atualizadas.",
-                    camposAlterados,
-                }).then((result) => {
-                    if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
-                })
+    atualizarRegrasOperacionais: async (valores) => {
+        const result = await actionAtualizarRegrasOperacionais(valores)
+        if (result.ok) {
+            set({ configuracoes: result.data })
+        }
+        return result
+    },
 
-                set((state) => ({
-                    configuracoes: { ...state.configuracoes, regrasOperacionais: valores },
-                }))
-            },
+    atualizarDadosEmpresa: async (valores) => {
+        const result = await actionAtualizarDadosEmpresa(valores)
+        if (result.ok) {
+            set({ configuracoes: result.data })
+        }
+        return result
+    },
 
-            atualizarDadosEmpresa: (valores, usuario) => {
-                const atual = get().configuracoes
-                const camposAlterados = diffCampos(atual.dadosEmpresa, valores)
-                if (camposAlterados.length === 0) return
+    atualizarDeposito: async (valores) => {
+        const result = await actionAtualizarDeposito(valores)
+        if (result.ok) {
+            set({ configuracoes: result.data })
+        }
+        return result
+    },
 
-                actionRegistrarAuditoria({
-                    modulo: "CONFIGURACOES",
-                    acao: "ATUALIZADO",
-                    entidadeId: atual.empresaId,
-                    descricao: "Dados da empresa atualizados.",
-                    camposAlterados,
-                }).then((result) => {
-                    if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
-                })
-
-                set((state) => ({
-                    configuracoes: { ...state.configuracoes, dadosEmpresa: valores },
-                }))
-            },
-
-            atualizarDeposito: (valores, usuario) => {
-                const atual = get().configuracoes
-                const camposAlterados = diffCampos(atual.deposito, valores)
-                if (camposAlterados.length === 0) return
-
-                actionRegistrarAuditoria({
-                    modulo: "CONFIGURACOES",
-                    acao: "ATUALIZADO",
-                    entidadeId: atual.empresaId,
-                    descricao: "Dados do depósito atualizados.",
-                    camposAlterados,
-                }).then((result) => {
-                    if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
-                })
-
-                set((state) => ({
-                    configuracoes: { ...state.configuracoes, deposito: valores },
-                }))
-            },
-
-            atualizarSeguranca: (valores, usuario) => {
-                const atual = get().configuracoes
-                const camposAlterados = diffCampos(atual.seguranca, valores)
-                if (camposAlterados.length === 0) return
-
-                actionRegistrarAuditoria({
-                    modulo: "CONFIGURACOES",
-                    acao: "ATUALIZADO",
-                    entidadeId: atual.empresaId,
-                    descricao: "Configurações de segurança atualizadas.",
-                    camposAlterados,
-                }).then((result) => {
-                    if (!result.ok) console.error("Erro ao registrar auditoria:", result.error)
-                })
-
-                set((state) => ({
-                    configuracoes: { ...state.configuracoes, seguranca: valores },
-                }))
-            },
-        }),
-        { name: "nordil-configuracoes-store" },
-    ),
-)
+    atualizarSeguranca: async (valores) => {
+        const result = await actionAtualizarSeguranca(valores)
+        if (result.ok) {
+            set({ configuracoes: result.data })
+        }
+        return result
+    },
+}))

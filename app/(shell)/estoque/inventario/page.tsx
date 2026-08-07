@@ -1,18 +1,17 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useCurrentUser } from "@/lib/auth-context"
-import { useInventarioContagemStore } from "@/lib/inventario-contagem-store"
+import { actionListarInventarios, actionAbrirInventario } from "@/lib/actions/inventario"
 import { podeAbrirInventario } from "@/lib/policies"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
-import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
-import { obterCategoriaProduto, CATEGORIAS } from "@/lib/mock-inventario"
-import type { StatusInventarioContagem, TipoEscopoInventario, InventarioContagem } from "@/types/domain"
+import { actionObterUsuarios } from "@/lib/actions/usuarios"
+import { listarProdutos } from "@/lib/actions/produtos"
+import { CATEGORIAS } from "@/lib/mock-inventario"
+import type { StatusInventarioContagem, TipoEscopoInventario } from "@/types/domain"
 import { DataTable, type DataTableColumn, type DataTableSort } from "@/components/ui/data-table"
 import { Modal } from "@/components/ui/modal"
 import { Autocomplete } from "@/components/ui/autocomplete"
-import { cn } from "@/lib/utils"
 
 const STATUS_OPTIONS: { value: StatusInventarioContagem | ""; label: string }[] = [
   { value: "", label: "Todos" },
@@ -29,38 +28,20 @@ const TIPO_ESCOPO_OPTIONS: { value: TipoEscopoInventario; label: string }[] = [
   { value: "TODOS_PRODUTOS", label: "Todos os produtos" },
 ]
 
-const CORREDORES = Array.from(new Set(MOCK_PRODUTOS.map((p) => p.corredor).filter((c): c is string => !!c))).sort()
-
-const FORNECEDORES = Array.from(new Set(MOCK_PRODUTOS.map((p) => p.marca))).sort()
-
-type InventarioComDados = InventarioContagem & {
-  abertoPorNome: string
-  responsavelNome: string
-  itensContados: number
-  itensTotal: number
-  divergenciasAplicadas: number
-}
-
-const formatarData = (iso: string) =>
+const formatarData = (iso: string | Date) =>
   new Date(iso).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   })
 
-const formatarDataHora = (iso: string) =>
-  new Date(iso).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-
 export default function EstoqueInventarioPage() {
   const router = useRouter()
   const currentUser = useCurrentUser()
-  const inventarioStore = useInventarioContagemStore()
+
+  const [inventarios, setInventarios] = useState<any[]>([])
+  const [carregandoInventarios, setCarregandoInventarios] = useState(true)
+  const [erroInventarios, setErroInventarios] = useState<string | null>(null)
 
   const [busca, setBusca] = useState("")
   const [status, setStatus] = useState<StatusInventarioContagem | "">("")
@@ -78,38 +59,84 @@ export default function EstoqueInventarioPage() {
 
   const podeAbrir = podeAbrirInventario(currentUser)
 
-  const estoquistas = MOCK_USUARIOS.filter((u) => u.funcao === "ESTOQUE" && u.status === "ativo")
+  const [usuarios, setUsuarios] = useState<{ id: string; nome: string; funcao: string; status: string }[]>([])
+  const [produtos, setProdutos] = useState<any[]>([])
+  const [carregandoProdutos, setCarregandoProdutos] = useState(false)
+  const [erroCarregarProdutos, setErroCarregarProdutos] = useState<string | null>(null)
+
+  async function carregarInventarios() {
+    setCarregandoInventarios(true)
+    setErroInventarios(null)
+    const resultado = await actionListarInventarios()
+    if (resultado.ok && resultado.data) {
+      setInventarios(resultado.data)
+    } else {
+      setErroInventarios(resultado.error || "Erro ao carregar inventários")
+    }
+    setCarregandoInventarios(false)
+  }
+
+  useEffect(() => {
+    carregarInventarios()
+  }, [])
+
+  useEffect(() => {
+    actionObterUsuarios().then((resultado) => {
+      if (resultado.ok && resultado.data) {
+        setUsuarios(resultado.data)
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    setCarregandoProdutos(true)
+    setErroCarregarProdutos(null)
+    listarProdutos().then((resultado) => {
+      if (resultado.ok && resultado.data) {
+        setProdutos(resultado.data)
+      } else {
+        setErroCarregarProdutos(resultado.error || "Erro ao carregar produtos")
+      }
+      setCarregandoProdutos(false)
+    })
+  }, [])
+
+  const estoquistas = useMemo(
+    () => usuarios.filter((u) => u.funcao === "ESTOQUE" && u.status === "ativo"),
+    [usuarios],
+  )
+
+  const CORREDORES = useMemo(() => {
+    return Array.from(new Set(produtos.map((p) => p.corredor).filter((c): c is string => !!c))).sort()
+  }, [produtos])
+
+  const FORNECEDORES = useMemo(() => {
+    return Array.from(new Set(produtos.map((p) => p.fornecedor).filter((f): f is string => !!f))).sort()
+  }, [produtos])
 
   const inventariosComDados = useMemo(() => {
-    return inventarioStore.inventarios.map((inv) => {
-      const abertoPor = MOCK_USUARIOS.find((u) => u.id === inv.abertoPorId)
-      const responsavel = MOCK_USUARIOS.find((u) => u.id === inv.responsavelContagemId)
-      const itensContados = inv.itens.filter((i) => i.quantidadeContada !== null).length
-      const divergenciasAplicadas = inv.itens.filter((i) => i.status === "AJUSTADO").length
+    return inventarios.map((inv) => {
+      const itensContados = inv.itens.filter((i: any) => i.quantidadeContada !== null).length
+      const divergenciasAplicadas = inv.itens.filter((i: any) => i.status === "AJUSTADO").length
 
       return {
         ...inv,
-        abertoPorNome: abertoPor?.nome ?? inv.abertoPorId,
-        responsavelNome: responsavel?.nome ?? inv.responsavelContagemId,
+        abertoPorNome: inv.abertoPor?.nome ?? inv.abertoPorId,
+        responsavelNome: inv.responsavelContagem?.nome ?? inv.responsavelContagemId,
         itensContados,
         itensTotal: inv.itens.length,
         divergenciasAplicadas,
       }
     })
-  }, [inventarioStore.inventarios])
+  }, [inventarios])
 
   const filtrados = useMemo(() => {
     return inventariosComDados.filter((inv) => {
-      // Busca por descrição de escopo
       if (busca) {
         const q = busca.toLowerCase()
         if (!inv.descricaoEscopo.toLowerCase().includes(q)) return false
       }
-
-      // Filtro por status
       if (status && inv.status !== status) return false
-
-      // Filtro por intervalo de datas
       if (dataInicio) {
         const inicio = new Date(dataInicio).getTime()
         if (new Date(inv.abertoEm).getTime() < inicio) return false
@@ -118,14 +145,12 @@ export default function EstoqueInventarioPage() {
         const fim = new Date(dataFim).getTime()
         if (new Date(inv.abertoEm).getTime() > fim) return false
       }
-
       return true
     })
   }, [inventariosComDados, busca, status, dataInicio, dataFim])
 
   const tabelaOrdenada = useMemo(() => {
     if (!sort) return filtrados
-
     return [...filtrados].sort((a, b) => {
       let comparison = 0
       if (sort.columnId === "descricaoEscopo") {
@@ -143,7 +168,6 @@ export default function EstoqueInventarioPage() {
       } else if (sort.columnId === "responsavelNome") {
         comparison = a.responsavelNome.localeCompare(b.responsavelNome)
       }
-
       return sort.direction === "asc" ? comparison : -comparison
     })
   }, [filtrados, sort])
@@ -156,7 +180,7 @@ export default function EstoqueInventarioPage() {
     })
   }
 
-  function handleRowClick(row: InventarioComDados) {
+  function handleRowClick(row: any) {
     router.push(`/estoque/inventario/${row.id}`)
   }
 
@@ -180,47 +204,26 @@ export default function EstoqueInventarioPage() {
       return
     }
 
-    if (tipoEscopo === "CORREDOR" && !recorte) {
-      setFormError("Selecione o corredor.")
-      return
-    }
-
-    if (tipoEscopo === "CATEGORIA" && !recorte) {
-      setFormError("Selecione a categoria.")
-      return
-    }
-
-    if (tipoEscopo === "FORNECEDOR" && !recorte) {
-      setFormError("Selecione o fornecedor.")
-      return
-    }
-
-    if (tipoEscopo === "LISTA_MANUAL" && listaManualProdutoIds.length === 0) {
-      setFormError("Selecione ao menos um produto para a lista manual.")
-      return
-    }
-
     setSubmitting(true)
     setFormError(null)
 
-    const resultado = await inventarioStore.abrirInventario({
+    const resultado = await actionAbrirInventario({
       tipoEscopo,
       recorte,
       listaManualProdutoIds: tipoEscopo === "LISTA_MANUAL" ? listaManualProdutoIds : undefined,
       responsavelContagemId,
       observacao: observacao || undefined,
-      usuario: currentUser,
     })
 
     setSubmitting(false)
 
-    if (!resultado.sucesso) {
-      setFormError(resultado.erro)
+    if (!resultado.ok || !resultado.data) {
+      setFormError(resultado.error || "Erro ao criar inventário")
       return
     }
 
     handleFecharModal()
-    router.push(`/estoque/inventario/${resultado.inventario.id}`)
+    router.push(`/estoque/inventario/${resultado.data.id}`)
   }
 
   function getRecorteOptions() {
@@ -236,16 +239,11 @@ export default function EstoqueInventarioPage() {
     }
   }
 
-  const columns: DataTableColumn<InventarioComDados>[] = [
+  const columns: DataTableColumn<any>[] = [
     { id: "descricaoEscopo", header: "Escopo", cell: (r) => r.descricaoEscopo, sortable: true },
     { id: "abertoEm", header: "Data de abertura", cell: (r) => formatarData(r.abertoEm), sortable: true },
     { id: "status", header: "Status", cell: (r) => r.status, sortable: true },
-    {
-      id: "itensContados",
-      header: "Itens contados",
-      cell: (r) => `${r.itensContados}/${r.itensTotal}`,
-      sortable: true,
-    },
+    { id: "itensContados", header: "Itens contados", cell: (r) => `${r.itensContados}/${r.itensTotal}`, sortable: true },
     { id: "divergenciasAplicadas", header: "Divergências aplicadas", cell: (r) => r.divergenciasAplicadas, sortable: true },
     { id: "abertoPorNome", header: "Aberto por", cell: (r) => r.abertoPorNome, sortable: true },
     { id: "responsavelNome", header: "Responsável", cell: (r) => r.responsavelNome, sortable: true },
@@ -253,6 +251,12 @@ export default function EstoqueInventarioPage() {
 
   return (
     <div className="flex flex-col gap-4 p-6">
+      {(erroCarregarProdutos || erroInventarios) && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {erroInventarios || erroCarregarProdutos}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Inventário</h1>
         {podeAbrir && (
@@ -315,7 +319,7 @@ export default function EstoqueInventarioPage() {
         data={tabelaOrdenada}
         getRowId={(r) => r.id}
         onRowClick={handleRowClick}
-        emptyState="Nenhum inventário encontrado para os filtros selecionados."
+        emptyState={carregandoInventarios ? "Carregando..." : "Nenhum inventário encontrado para os filtros selecionados."}
         sort={sort}
         onSortChange={handleSortChange}
       />
@@ -344,36 +348,21 @@ export default function EstoqueInventarioPage() {
           {tipoEscopo === "CORREDOR" && (
             <div>
               <label className="mb-1 block text-sm text-muted-foreground">Corredor</label>
-              <Autocomplete
-                options={getRecorteOptions()}
-                value={recorte}
-                onChange={setRecorte}
-                placeholder="Selecione o corredor"
-              />
+              <Autocomplete options={getRecorteOptions()} value={recorte} onChange={setRecorte} placeholder="Selecione o corredor" />
             </div>
           )}
 
           {tipoEscopo === "CATEGORIA" && (
             <div>
               <label className="mb-1 block text-sm text-muted-foreground">Categoria</label>
-              <Autocomplete
-                options={getRecorteOptions()}
-                value={recorte}
-                onChange={setRecorte}
-                placeholder="Selecione a categoria"
-              />
+              <Autocomplete options={getRecorteOptions()} value={recorte} onChange={setRecorte} placeholder="Selecione a categoria" />
             </div>
           )}
 
           {tipoEscopo === "FORNECEDOR" && (
             <div>
               <label className="mb-1 block text-sm text-muted-foreground">Fornecedor</label>
-              <Autocomplete
-                options={getRecorteOptions()}
-                value={recorte}
-                onChange={setRecorte}
-                placeholder="Selecione o fornecedor"
-              />
+              <Autocomplete options={getRecorteOptions()} value={recorte} onChange={setRecorte} placeholder="Selecione o fornecedor" />
             </div>
           )}
 
@@ -381,7 +370,7 @@ export default function EstoqueInventarioPage() {
             <div>
               <label className="mb-1 block text-sm text-muted-foreground">Produtos</label>
               <Autocomplete
-                options={MOCK_PRODUTOS.filter((p) => p.status === "ativo").map((p) => ({ value: p.id, label: `${p.skuInterno} - ${p.nome}` }))}
+                options={produtos.filter((p) => p.status === "ativo").map((p) => ({ value: p.id, label: `${p.skuInterno} - ${p.nome}` }))}
                 value={null}
                 onChange={(value) => {
                   if (value && !listaManualProdutoIds.includes(value)) {
@@ -389,16 +378,14 @@ export default function EstoqueInventarioPage() {
                   }
                 }}
                 placeholder="Adicionar produto"
+                disabled={carregandoProdutos}
               />
               {listaManualProdutoIds.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {listaManualProdutoIds.map((id) => {
-                    const produto = MOCK_PRODUTOS.find((p) => p.id === id)
+                    const produto = produtos.find((p) => p.id === id)
                     return (
-                      <div
-                        key={id}
-                        className="flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-sm"
-                      >
+                      <div key={id} className="flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-sm">
                         <span>{produto?.nome ?? id}</span>
                         <button
                           type="button"
@@ -471,4 +458,3 @@ export default function EstoqueInventarioPage() {
     </div>
   )
 }
-

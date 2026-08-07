@@ -1,7 +1,7 @@
 'use client'
 
 import { Tooltip } from '@base-ui/react/tooltip'
-import { PanelLeftClose, PanelLeft, Boxes } from 'lucide-react'
+import { PanelLeftClose, PanelLeft } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -33,7 +33,7 @@ export function Sidebar({
         )}
       >
         <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-          <Boxes className="size-[18px]" />
+          <span className="text-[15px] font-bold tracking-tight">N</span>
         </div>
         {!collapsed && (
           <div className="flex min-w-0 flex-col">
@@ -70,14 +70,20 @@ export function Sidebar({
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex w-full items-center rounded-md text-sm font-medium outline-none transition-colors',
+                    'relative flex w-full items-center rounded-md text-sm font-medium outline-none transition-colors',
                     'focus-visible:ring-2 focus-visible:ring-sidebar-ring',
                     collapsed ? 'h-9 justify-center' : 'h-9 gap-2.5 px-2.5',
                     active
-                      ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                      ? 'bg-sidebar-primary/15 text-sidebar-accent-foreground'
                       : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                   )}
                 >
+                  {active && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-1 left-0 w-[3px] rounded-full bg-sidebar-primary"
+                    />
+                  )}
                   <Icon className="size-[18px] shrink-0" />
                   {!collapsed && <span className="truncate">{item.label}</span>}
                 </Link>

@@ -1,6 +1,6 @@
 import type { Pedido } from "@/types/domain"
-import { MOCK_PEDIDOS } from "@/lib/mock-pedidos"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
+import { actionObterPedidos } from "@/lib/actions/pedidos"
+import { actionObterUsuarios } from "@/lib/actions/usuarios"
 import { compararComPeriodoAnterior, periodoAnteriorEquivalente, dataNoPeriodo, diferencaHoras } from "@/lib/relatorios-utils"
 
 export interface IndicadoresOperacional {
@@ -23,7 +23,6 @@ export interface LinhaTabelaOperacional {
   tempoMedioExpedicao: number | null // em horas
 }
 
-// Interface temporária para agregação
 interface LinhaTabelaOperacionalTemp {
   operador: string
   pedidosSeparados: number
@@ -39,24 +38,29 @@ interface LinhaTabelaOperacionalTemp {
 
 /**
  * Calcula indicadores do relatório operacional para uma empresa em um período.
- * Filtra por empresaId antes de processar (via vendedorId do pedido).
- * 
+ * Fonte de dados: Prisma via actionObterPedidos/actionObterUsuarios (empresaId
+ * já é aplicado no server via sessão — o parâmetro empresaId aqui só é usado
+ * para o filtro de período/comparação, não para escopo de tenant).
+ *
  * Nota: Não há campo de prazo alvo SLA no domínio, então esse indicador é omitido.
  * Tempos médios são calculados a partir de PedidoEvento, usando usuarioId do evento.
  */
-export function calcularIndicadoresOperacional(
+export async function calcularIndicadoresOperacional(
   empresaId: string,
   dataInicio: Date,
   dataFim: Date,
   filtros?: FiltrosOperacional
-): { indicadores: IndicadoresOperacional; tabela: LinhaTabelaOperacional[] } {
-  // Filtra pedidos por empresa (via vendedorId) e período
-  const pedidosEmpresa = MOCK_PEDIDOS.filter((pedido) => {
-    const vendedor = MOCK_USUARIOS.find((u) => u.id === pedido.vendedorId)
-    if (!vendedor || vendedor.empresaId !== empresaId) return false
-    if (!dataNoPeriodo(pedido.criadoEm, dataInicio, dataFim)) return false
-    return true
-  })
+): Promise<{ indicadores: IndicadoresOperacional; tabela: LinhaTabelaOperacional[] }> {
+  const [pedidosResultado, usuariosResultado] = await Promise.all([
+    actionObterPedidos(),
+    actionObterUsuarios(),
+  ])
+
+  const todosPedidos = pedidosResultado.ok && pedidosResultado.data ? pedidosResultado.data : []
+  const usuarios = usuariosResultado.ok && usuariosResultado.data ? usuariosResultado.data : []
+
+  // Filtra pedidos por período (empresaId já é escopado no server via sessão)
+  const pedidosEmpresa = todosPedidos.filter((pedido) => dataNoPeriodo(pedido.criadoEm, dataInicio, dataFim))
 
   // Calcula período anterior equivalente
   const { inicio: inicioAnterior, fim: fimAnterior } = periodoAnteriorEquivalente(
@@ -64,19 +68,12 @@ export function calcularIndicadoresOperacional(
     dataFim
   )
 
-  // Filtra pedidos do período anterior
-  const pedidosAnterior = MOCK_PEDIDOS.filter((pedido) => {
-    const vendedor = MOCK_USUARIOS.find((u) => u.id === pedido.vendedorId)
-    if (!vendedor || vendedor.empresaId !== empresaId) return false
-    if (!dataNoPeriodo(pedido.criadoEm, inicioAnterior, fimAnterior)) return false
-    return true
-  })
+  const pedidosAnterior = todosPedidos.filter((pedido) => dataNoPeriodo(pedido.criadoEm, inicioAnterior, fimAnterior))
 
   // Função auxiliar para calcular tempos por pedido
   const calcularTemposPedido = (pedido: Pedido) => {
     const eventos = pedido.eventos
 
-    // Tempo de separação: SEPARACAO_CONCLUIDA - SEPARACAO_INICIADA
     const separacaoIniciada = eventos.find((e) => e.tipo === "SEPARACAO_INICIADA")
     const separacaoConcluida = eventos.find((e) => e.tipo === "SEPARACAO_CONCLUIDA")
     const tempoSeparacao =
@@ -84,7 +81,6 @@ export function calcularIndicadoresOperacional(
         ? diferencaHoras(separacaoIniciada.dataHora, separacaoConcluida.dataHora)
         : null
 
-    // Tempo de conferência: CONFERENCIA_CONCLUIDA - CONFERENCIA_INICIADA
     const conferenciaIniciada = eventos.find((e) => e.tipo === "CONFERENCIA_INICIADA")
     const conferenciaConcluida = eventos.find((e) => e.tipo === "CONFERENCIA_CONCLUIDA")
     const tempoConferencia =
@@ -92,7 +88,6 @@ export function calcularIndicadoresOperacional(
         ? diferencaHoras(conferenciaIniciada.dataHora, conferenciaConcluida.dataHora)
         : null
 
-    // Tempo de expedição: PEDIDO_EXPEDIDO - PEDIDO_CRIADO
     const pedidoCriado = eventos.find((e) => e.tipo === "PEDIDO_CRIADO")
     const pedidoExpedido = eventos.find((e) => e.tipo === "PEDIDO_EXPEDIDO")
     const tempoExpedicao =
@@ -100,7 +95,6 @@ export function calcularIndicadoresOperacional(
         ? diferencaHoras(pedidoCriado.dataHora, pedidoExpedido.dataHora)
         : null
 
-    // Operadores responsáveis por cada etapa
     const operadorSeparacao = separacaoConcluida?.usuarioId || null
     const operadorConferencia = conferenciaConcluida?.usuarioId || null
     const operadorExpedicao = pedidoExpedido?.usuarioId || null
@@ -115,7 +109,6 @@ export function calcularIndicadoresOperacional(
     }
   }
 
-  // Função auxiliar para calcular métricas agregadas
   const calcularMetricas = (pedidos: Pedido[]) => {
     const temposSeparacao: number[] = []
     const temposConferencia: number[] = []
@@ -147,16 +140,14 @@ export function calcularIndicadoresOperacional(
   const metricasAtual = calcularMetricas(pedidosEmpresa)
   const metricasAnterior = calcularMetricas(pedidosAnterior)
 
-  // Gera dados da tabela (agregado por operador)
   const operadoresMap = new Map<string, LinhaTabelaOperacionalTemp>()
 
   const processarPedidos = (pedidos: Pedido[]) => {
     pedidos.forEach((pedido) => {
       const tempos = calcularTemposPedido(pedido)
 
-      // Agrega por operador de separação
       if (tempos.operadorSeparacao) {
-        const operador = MOCK_USUARIOS.find((u) => u.id === tempos.operadorSeparacao)
+        const operador = usuarios.find((u) => u.id === tempos.operadorSeparacao)
         if (operador && (!filtros?.operadorId || operador.id === filtros.operadorId)) {
           const atual: LinhaTabelaOperacionalTemp = operadoresMap.get(operador.id) || {
             operador: operador.nome,
@@ -176,9 +167,8 @@ export function calcularIndicadoresOperacional(
         }
       }
 
-      // Agrega por operador de conferência
       if (tempos.operadorConferencia) {
-        const operador = MOCK_USUARIOS.find((u) => u.id === tempos.operadorConferencia)
+        const operador = usuarios.find((u) => u.id === tempos.operadorConferencia)
         if (operador && (!filtros?.operadorId || operador.id === filtros.operadorId)) {
           const atual: LinhaTabelaOperacionalTemp = operadoresMap.get(operador.id) || {
             operador: operador.nome,
@@ -198,9 +188,8 @@ export function calcularIndicadoresOperacional(
         }
       }
 
-      // Agrega por operador de expedição
       if (tempos.operadorExpedicao) {
-        const operador = MOCK_USUARIOS.find((u) => u.id === tempos.operadorExpedicao)
+        const operador = usuarios.find((u) => u.id === tempos.operadorExpedicao)
         if (operador && (!filtros?.operadorId || operador.id === filtros.operadorId)) {
           const atual: LinhaTabelaOperacionalTemp = operadoresMap.get(operador.id) || {
             operador: operador.nome,
@@ -224,7 +213,6 @@ export function calcularIndicadoresOperacional(
 
   processarPedidos(pedidosEmpresa)
 
-  // Calcula médias e remove arrays temporários
   const tabela: LinhaTabelaOperacional[] = Array.from(operadoresMap.values()).map((linha): LinhaTabelaOperacional => ({
     operador: linha.operador,
     pedidosSeparados: linha.pedidosSeparados,
@@ -244,7 +232,6 @@ export function calcularIndicadoresOperacional(
         : null,
   }))
 
-  // Ordena por nome do operador
   tabela.sort((a, b) => a.operador.localeCompare(b.operador))
 
   return {

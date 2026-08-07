@@ -43,6 +43,18 @@ export function podeOperarSeparacao(pedido: Pedido, usuario: UsuarioBasico): boo
     return isSupervisorOuAdmin(usuario)
 }
 
+/**
+ * Mesmo critério de podeOperarSeparacao, mas para a trava de conferência (conferenteId).
+ */
+export function podeOperarConferenciaSessao(
+    pedido: { conferenteId?: string },
+    usuario: UsuarioBasico
+): boolean {
+    if (!pedido.conferenteId) return true
+    if (pedido.conferenteId === usuario.id) return true
+    return isSupervisorOuAdmin(usuario)
+}
+
 // Mesmo critério de "atrasado" do Dashboard (Módulo 3, seção 23): RESERVADO
 // há mais de 24h sem iniciar separação, ou EM_SEPARACAO há mais de 48h sem
 // conferência. Se lib/dashboard.ts já implementa isso, vale consolidar num

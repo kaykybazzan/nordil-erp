@@ -3,12 +3,21 @@ import { cn } from "@/lib/utils"
 export type BadgeTone = "neutral" | "info" | "warning" | "success" | "danger" | "accent"
 
 const toneClasses: Record<BadgeTone, string> = {
-    neutral: "bg-muted text-muted-foreground",
-    info: "bg-info/12 text-info",
-    warning: "bg-warning/12 text-warning",
-    success: "bg-success/12 text-success",
-    danger: "bg-destructive/12 text-destructive",
-    accent: "bg-accent text-accent-foreground",
+    neutral: "bg-muted text-muted-foreground ring-1 ring-inset ring-border",
+    info: "bg-info/10 text-info ring-1 ring-inset ring-info/20",
+    warning: "bg-warning/10 text-warning ring-1 ring-inset ring-warning/20",
+    success: "bg-success/10 text-success ring-1 ring-inset ring-success/20",
+    danger: "bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/20",
+    accent: "bg-accent text-accent-foreground ring-1 ring-inset ring-accent-foreground/15",
+}
+
+const dotClasses: Record<BadgeTone, string> = {
+    neutral: "bg-muted-foreground/50",
+    info: "bg-info",
+    warning: "bg-warning",
+    success: "bg-success",
+    danger: "bg-destructive",
+    accent: "bg-accent-foreground",
 }
 
 interface StatusBadgeProps {
@@ -21,11 +30,12 @@ export function StatusBadge({ label, tone = "neutral", className }: StatusBadgeP
     return (
         <span
             className={cn(
-                "inline-flex w-fit items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium",
+                "inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
                 toneClasses[tone],
                 className,
             )}
         >
+            <span className={cn("size-1.5 shrink-0 rounded-full", dotClasses[tone])} aria-hidden />
             {label}
         </span>
     )

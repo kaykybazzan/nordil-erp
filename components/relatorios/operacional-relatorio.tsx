@@ -1,10 +1,10 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useCurrentUser } from "@/lib/auth-context"
 import { useKpi } from "@/lib/use-kpi"
 import { calcularIndicadoresOperacional } from "@/lib/relatorios-operacional"
-import { MOCK_USUARIOS } from "@/lib/mock-usuarios"
+import { actionObterUsuarios } from "@/lib/actions/usuarios"
 import { PeriodoFiltro, periodoUltimos30Dias } from "@/components/relatorios/periodo-filtro"
 import { IndicadorCard } from "@/components/relatorios/indicador-card"
 import { Autocomplete } from "@/components/ui/autocomplete"
@@ -19,22 +19,31 @@ export function OperacionalRelatorio() {
     const [operadorId, setOperadorId] = useState<string | null>(null)
     const [visibleCount, setVisibleCount] = useState(20)
     const [sort, setSort] = useState<DataTableSort | null>(null)
+    const [usuarios, setUsuarios] = useState<{ id: string; nome: string; empresaId: string }[]>([])
+
+    useEffect(() => {
+        actionObterUsuarios().then((resultado) => {
+            if (resultado.ok && resultado.data) {
+                setUsuarios(resultado.data)
+            }
+        })
+    }, [])
 
     const periodoInvalido = periodo.fim !== "" && periodo.inicio !== "" && periodo.fim < periodo.inicio
 
     const operadorOptions = useMemo(
         () =>
-            MOCK_USUARIOS.filter((u) => u.empresaId === currentUser.empresaId).map((u) => ({
+            usuarios.filter((u) => u.empresaId === currentUser.empresaId).map((u) => ({
                 value: u.id,
                 label: u.nome,
             })),
-        [currentUser.empresaId],
+        [usuarios, currentUser.empresaId],
     )
 
     const resultado = useKpi(
-        () => {
+        async () => {
             if (periodoInvalido) return null
-            return calcularIndicadoresOperacional(
+            return await calcularIndicadoresOperacional(
                 currentUser.empresaId,
                 new Date(periodo.inicio),
                 new Date(periodo.fim),

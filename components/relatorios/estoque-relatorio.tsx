@@ -1,14 +1,15 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useCurrentUser } from "@/lib/auth-context"
 import { useKpi } from "@/lib/use-kpi"
 import { actionCalcularIndicadoresEstoque } from "@/lib/actions/estoque"
-import { MOCK_PRODUTOS } from "@/lib/mock-produtos"
+import { listarProdutos } from "@/lib/actions/produtos"
 import { obterCategoriaProduto } from "@/lib/mock-inventario"
 import { IndicadorCard } from "@/components/relatorios/indicador-card"
 import { Autocomplete } from "@/components/ui/autocomplete"
 import { DataTable, type DataTableColumn, type DataTableSort } from "@/components/ui/data-table"
+import type { Produto } from "@/types/domain"
 
 const formatarMoeda = (v: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)
@@ -21,14 +22,21 @@ export function EstoqueRelatorio() {
     const [visibleCount, setVisibleCount] = useState(20)
     const [sort, setSort] = useState<DataTableSort | null>(null)
 
-    const produtosEmpresa = useMemo(
-        () => MOCK_PRODUTOS.filter((p) => p.empresaId === currentUser.empresaId),
-        [currentUser.empresaId],
-    )
+    const [produtosEmpresa, setProdutosEmpresa] = useState<Produto[]>([])
+
+    // listarProdutos() já filtra por empresaId no server (via session), não
+    // precisa mais filtrar no client — a fonte de verdade agora é o Prisma.
+    useEffect(() => {
+        listarProdutos().then((result) => {
+            if (result.ok && result.data) {
+                setProdutosEmpresa(result.data)
+            }
+        })
+    }, [])
 
     // Categorias derivadas dinamicamente — lista canônica de categorias não auditada ainda.
     const categoriaOptions = useMemo(() => {
-        const unicas = new Set(produtosEmpresa.map((p) => obterCategoriaProduto(p.id)))
+        const unicas = new Set(produtosEmpresa.map((p) => obterCategoriaProduto(p)))
         return Array.from(unicas).map((c) => ({ value: c, label: c }))
     }, [produtosEmpresa])
 

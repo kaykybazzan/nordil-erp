@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { UFS, formatCep, novoEnderecoVazio } from "@/lib/mock-clientes"
+import { UFS, formatCep, novoEnderecoVazio } from "@/lib/utils/cliente-utils"
 import type { Endereco } from "@/types/domain"
 
 interface EnderecoFormProps {

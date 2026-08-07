@@ -10,7 +10,6 @@ export function useAuth() {
     id: session.user.id,
     nome: session.user.name,
     email: session.user.email,
-    senha: "", // Não expomos a senha do usuário
     empresaId: session.user.empresaId,
     role: session.user.role as any,
     funcao: session.user.funcao as any,

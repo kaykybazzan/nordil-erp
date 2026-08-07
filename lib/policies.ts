@@ -37,6 +37,17 @@ export function podeVerConfiguracoes(usuario: Usuario): boolean {
   return usuario.role === "ADMIN"
 }
 
+/**
+ * Verifica se um usuário tem permissão para gerenciar usuários
+ * (criar, editar, ativar/inativar). Único perfil com acesso é o Administrador —
+ * mais restrito que Configurações porque mexe em credenciais de outras pessoas.
+ * Tipado com UsuarioComRole (não Usuario completo) porque é chamado a partir
+ * de session.user no server, que não tem o shape completo de Usuario.
+ */
+export function podeGerenciarUsuarios(usuario: UsuarioComRole): boolean {
+  return usuario.role === "ADMIN"
+}
+
 // ─── Devoluções
 
 /**
@@ -114,12 +125,26 @@ export function podeReatribuirResponsavelInventario(usuario: Usuario): boolean {
  * ADMIN e SUPERVISOR sempre podem operar.
  * OPERADOR com função CONFERENCIA também pode operar.
  */
-export function podeOperarConferencia(usuario: UsuarioComRoleEFuncao): boolean {
-  return (
-    usuario.role === "ADMIN" ||
-    usuario.role === "SUPERVISOR" ||
-    usuario.funcao === "CONFERENCIA"
-  )
+type UsuarioParaConferencia = { id: string; role: string; funcao: string }
+
+/**
+ * Verifica se um usuário tem permissão para operar a conferência de um pedido.
+ * Precisa ter a permissão de função (ADMIN/SUPERVISOR/funcao CONFERENCIA) E,
+ * se o pedido já estiver travado por outro conferente, só esse conferente
+ * ou um Supervisor/Admin pode continuar. Mesmo espírito de podeOperarSeparacao.
+ */
+export function podeOperarConferencia(
+  pedido: { conferenteId?: string | null },
+  usuario: UsuarioParaConferencia,
+): boolean {
+  const temPermissaoDeFuncao =
+    usuario.role === "ADMIN" || usuario.role === "SUPERVISOR" || usuario.funcao === "CONFERENCIA"
+
+  if (!temPermissaoDeFuncao) return false
+
+  if (!pedido.conferenteId) return true
+  if (pedido.conferenteId === usuario.id) return true
+  return usuario.role === "SUPERVISOR" || usuario.role === "ADMIN"
 }
 
 // ─── Pedidos - Expedição

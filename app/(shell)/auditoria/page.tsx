@@ -4,20 +4,33 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import { Menu } from "@base-ui/react/menu"
 import { Search, ChevronDown, Check, Clock, FileText, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { MOCK_AUDITORIA } from "@/lib/mock-auditoria"
-import type { RegistroAuditoria } from "@/lib/mock-auditoria"
 import type { ModuloAuditoria, AcaoAuditoria } from "@/types/domain"
 import { useCurrentUser } from "@/lib/auth-context"
+import { actionObterAuditoria } from "@/lib/actions/auditoria"
+
+// Tipo para o retorno real do Prisma (modulo/acao são string, não enums)
+type RegistroAuditoriaReal = {
+  id: string
+  dataHora: Date
+  usuarioId: string
+  usuarioNome: string
+  modulo: string
+  acao: string
+  entidadeId: string
+  descricao: string
+  motivo?: string | null
+  camposAlterados?: unknown // Prisma retorna JsonValue, que é mais amplo
+} & { empresaId?: string }
 
 const PAGE_SIZE = 20
 
 // Função para formatar ação de auditoria de forma legível
 function formatarAcaoAuditoria(
-  modulo: ModuloAuditoria,
-  acao: AcaoAuditoria,
+  modulo: string,
+  acao: string,
   camposAlterados?: { campo: string; valorAnterior: string; valorNovo: string }[]
 ): string {
-  const moduloLabel: Record<ModuloAuditoria, string> = {
+  const moduloLabel: Record<string, string> = {
     PEDIDOS: "Pedido",
     CLIENTES: "Cliente",
     PRODUTOS: "Produto",
@@ -29,7 +42,7 @@ function formatarAcaoAuditoria(
     INVENTARIO: "Inventário",
   }
 
-  const acaoLabel: Record<AcaoAuditoria, string> = {
+  const acaoLabel: Record<string, string> = {
     CRIADO: "criado",
     ATUALIZADO: "editado",
     CANCELADO: "cancelado",
@@ -53,12 +66,11 @@ function formatarAcaoAuditoria(
     }
   }
 
-  return `${moduloLabel[modulo]} ${acaoLabel[acao]}`
+  return `${moduloLabel[modulo] || modulo} ${acaoLabel[acao] || acao}`
 }
 
 // Função para formatar data/hora
-function formatarDataHora(isoString: string): string {
-  const date = new Date(isoString)
+function formatarDataHora(date: Date): string {
   return date.toLocaleString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
@@ -71,6 +83,8 @@ function formatarDataHora(isoString: string): string {
 export default function AuditoriaPage() {
   const currentUser = useCurrentUser()
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [registros, setRegistros] = useState<RegistroAuditoriaReal[]>([])
   const [busca, setBusca] = useState("")
   const [buscaDebounced, setBuscaDebounced] = useState("")
   const [visiveis, setVisiveis] = useState(PAGE_SIZE)
@@ -87,12 +101,20 @@ export default function AuditoriaPage() {
 
   const searchRef = useRef<HTMLInputElement>(null)
 
-  // Carrega dados iniciais (simula skeleton)
+  // Carrega dados iniciais do servidor
   useEffect(() => {
-    const t = window.setTimeout(() => {
+    async function carregarAuditoria() {
+      setLoading(true)
+      setError(null)
+      const result = await actionObterAuditoria()
+      if (result.ok && result.data) {
+        setRegistros(result.data)
+      } else {
+        setError(result.error || "Erro ao carregar auditoria")
+      }
       setLoading(false)
-    }, 500)
-    return () => window.clearTimeout(t)
+    }
+    carregarAuditoria()
   }, [])
 
   // Debounce da busca
@@ -120,41 +142,36 @@ export default function AuditoriaPage() {
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
-  // Filtra por empresaId primeiro (escopo multi-tenant)
-  const porEmpresa = useMemo(() => {
-    return MOCK_AUDITORIA.filter((r) => r.empresaId === currentUser.empresaId)
-  }, [currentUser.empresaId])
-
-  // Deriva opções de filtros dinamicamente dos dados da empresa
+  // Deriva opções de filtros dinamicamente dos dados carregados
   const usuariosDisponiveis = useMemo(() => {
     const uniqueUsers = new Map<string, string>()
-    porEmpresa.forEach((r) => {
+    registros.forEach((r) => {
       uniqueUsers.set(r.usuarioId, r.usuarioNome)
     })
     return Array.from(uniqueUsers.entries()).map(([id, nome]) => ({ id, nome }))
-  }, [porEmpresa])
+  }, [registros])
 
   const modulosDisponiveis = useMemo(() => {
     const unique = new Set<ModuloAuditoria>()
-    porEmpresa.forEach((r) => unique.add(r.modulo))
+    registros.forEach((r) => unique.add(r.modulo as ModuloAuditoria))
     return Array.from(unique)
-  }, [porEmpresa])
+  }, [registros])
 
   const acoesDisponiveis = useMemo(() => {
     const unique = new Set<AcaoAuditoria>()
-    porEmpresa.forEach((r) => unique.add(r.acao))
+    registros.forEach((r) => unique.add(r.acao as AcaoAuditoria))
     return Array.from(unique)
-  }, [porEmpresa])
+  }, [registros])
 
   // Aplica todos os filtros
   const filtrados = useMemo(() => {
-    let result = porEmpresa
+    let result = registros
 
     // Filtro de busca
     const q = buscaDebounced.trim().toLowerCase()
     if (q) {
       result = result.filter(
-        (r) =>
+        (r: RegistroAuditoriaReal) =>
           r.descricao.toLowerCase().includes(q) ||
           r.entidadeId.toLowerCase().includes(q)
       )
@@ -162,40 +179,40 @@ export default function AuditoriaPage() {
 
     // Filtro de usuário
     if (usuarioFiltro) {
-      result = result.filter((r) => r.usuarioId === usuarioFiltro)
+      result = result.filter((r: RegistroAuditoriaReal) => r.usuarioId === usuarioFiltro)
     }
 
     // Filtro de módulo
     if (moduloFiltro) {
-      result = result.filter((r) => r.modulo === moduloFiltro)
+      result = result.filter((r: RegistroAuditoriaReal) => r.modulo === moduloFiltro)
     }
 
     // Filtro de ação
     if (acaoFiltro) {
-      result = result.filter((r) => r.acao === acaoFiltro)
+      result = result.filter((r: RegistroAuditoriaReal) => r.acao === acaoFiltro)
     }
 
     // Filtro de período
     if (dataInicio) {
   const inicio = new Date(dataInicio).setHours(0, 0, 0, 0)
-  result = result.filter((r) => new Date(r.dataHora).getTime() >= inicio)
+  result = result.filter((r: RegistroAuditoriaReal) => new Date(r.dataHora).getTime() >= inicio)
   }
   if (dataFim) {
     const fim = new Date(dataFim).setHours(23, 59, 59, 999)
-    result = result.filter((r) => new Date(r.dataHora).getTime() <= fim)
+    result = result.filter((r: RegistroAuditoriaReal) => new Date(r.dataHora).getTime() <= fim)
   }
 
     // Ordenação cronológica (mais recente primeiro)
-    return [...result].sort((a, b) => 
+    return [...result].sort((a, b) =>
       new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime()
     )
-  }, [porEmpresa, buscaDebounced, usuarioFiltro, moduloFiltro, acaoFiltro, dataInicio, dataFim])
+  }, [registros, buscaDebounced, usuarioFiltro, moduloFiltro, acaoFiltro, dataInicio, dataFim])
 
   const paginados = filtrados.slice(0, visiveis)
   const temMais = filtrados.length > visiveis
 
-  const semRegistros = !loading && porEmpresa.length === 0
-  const semResultado = !loading && porEmpresa.length > 0 && filtrados.length === 0
+  const semRegistros = !loading && registros.length === 0
+  const semResultado = !loading && registros.length > 0 && filtrados.length === 0
 
   // Guarda de acesso — só ADMIN vê auditoria
   if (currentUser.role !== "ADMIN") {
@@ -205,6 +222,15 @@ export default function AuditoriaPage() {
         <p className="text-sm text-muted-foreground">
           Você não tem permissão para acessar esta área.
         </p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col gap-4 p-6">
+        <h1 className="text-lg font-semibold">Auditoria</h1>
+        <p className="text-sm text-destructive">Erro ao carregar auditoria: {error}</p>
       </div>
     )
   }
@@ -395,7 +421,11 @@ export default function AuditoriaPage() {
                       </Td>
                       <Td>{registro.usuarioNome}</Td>
                       <Td className="font-medium">
-                        {formatarAcaoAuditoria(registro.modulo, registro.acao, registro.camposAlterados)}
+                        {formatarAcaoAuditoria(
+                          registro.modulo,
+                          registro.acao,
+                          (registro.camposAlterados as { campo: string; valorAnterior: string; valorNovo: string }[] | undefined)
+                        )}
                       </Td>
                       <Td className="font-mono text-xs text-muted-foreground">
                         {registro.entidadeId}
@@ -421,22 +451,28 @@ export default function AuditoriaPage() {
                                 <p className="text-sm">{registro.motivo}</p>
                               </div>
                             )}
-                            {registro.camposAlterados && registro.camposAlterados.length > 0 && (
-                              <div>
-                                <p className="text-xs font-semibold text-muted-foreground mb-2">Campos alterados:</p>
-                                <div className="space-y-2">
-                                  {registro.camposAlterados.map((c, i) => (
-                                    <div key={i} className="flex items-center gap-2 text-sm">
-                                      <span className="font-medium min-w-[100px]">{c.campo}:</span>
-                                      <span className="text-muted-foreground line-through">{c.valorAnterior}</span>
-                                      <span className="text-muted-foreground">→</span>
-                                      <span className="text-foreground">{c.valorNovo}</span>
+                            {(() => {
+                              const campos = registro.camposAlterados as { campo: string; valorAnterior: string; valorNovo: string }[] | null | undefined
+                              if (campos && Array.isArray(campos) && campos.length > 0) {
+                                return (
+                                  <div>
+                                    <p className="text-xs font-semibold text-muted-foreground mb-2">Campos alterados:</p>
+                                    <div className="space-y-2">
+                                      {campos.map((c, i) => (
+                                        <div key={i} className="flex items-center gap-2 text-sm">
+                                          <span className="font-medium min-w-[100px]">{c.campo}:</span>
+                                          <span className="text-muted-foreground line-through">{c.valorAnterior}</span>
+                                          <span className="text-muted-foreground">→</span>
+                                          <span className="text-foreground">{c.valorNovo}</span>
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {!registro.motivo && (!registro.camposAlterados || registro.camposAlterados.length === 0) && (
+                                  </div>
+                                )
+                              }
+                              return null
+                            })()}
+                            {!registro.motivo && (!registro.camposAlterados || !Array.isArray(registro.camposAlterados) || registro.camposAlterados.length === 0) && (
                               <p className="text-sm text-muted-foreground">{registro.descricao}</p>
                             )}
                           </div>

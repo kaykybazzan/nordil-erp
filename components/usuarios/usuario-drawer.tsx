@@ -29,14 +29,13 @@ interface UsuarioDrawerProps {
   onSave: (
     dados: Omit<Usuario, "id" | "empresaId">,
     usuarioId?: string,
-  ) => { ok: true } | { ok: false; error: string }
+  ) => Promise<{ ok: true } | { ok: false; error: string }>
 }
 
 function emptyForm() {
   return {
     nome: "",
     email: "",
-    senha: "",
     precisaTrocarSenha: false,
     cargo: "",
     role: "OPERADOR" as PapelUsuario,
@@ -58,7 +57,6 @@ export function UsuarioDrawer({ usuario, open, onOpenChange, onSave }: UsuarioDr
           ? {
               nome: usuario.nome,
               email: usuario.email,
-              senha: usuario.senha,
               precisaTrocarSenha: usuario.precisaTrocarSenha,
               cargo: usuario.cargo ?? "",
               role: usuario.role,
@@ -70,7 +68,7 @@ export function UsuarioDrawer({ usuario, open, onOpenChange, onSave }: UsuarioDr
     }
   }, [open, usuario])
 
-  function handleSubmit() {
+  async function handleSubmit() {
     setErro(null)
 
     if (!form.nome.trim()) {
@@ -82,11 +80,10 @@ export function UsuarioDrawer({ usuario, open, onOpenChange, onSave }: UsuarioDr
       return
     }
 
-    const resultado = onSave(
+    const resultado = await onSave(
       {
         nome: form.nome.trim(),
         email: form.email.trim(),
-        senha: form.senha,
         precisaTrocarSenha: form.precisaTrocarSenha,
         cargo: form.cargo.trim() || undefined,
         role: form.role,
