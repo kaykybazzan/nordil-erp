@@ -6,6 +6,7 @@ import { useCurrentUser } from "@/lib/auth-context"
 import { DataTable, type DataTableColumn, type DataTableSort } from "@/components/ui/data-table"
 import { PedidoStatusBadge } from "@/components/status-badges"
 import { Button } from "@/components/ui/button"
+import { RowActionsMenu } from "@/components/ui/row-actions-menu"
 import { CancelarPedidoDialog } from "@/components/pedidos/cancelar-pedido-dialog"
 import { podeCancelarPedido, isPedidoAtrasado, formatTempoNoStatus } from "@/lib/pedidos"
 import { usePedidosStore } from "@/lib/pedidos-store"
@@ -230,16 +231,15 @@ export default function PedidosPage() {
       header: "",
       cell: (p) =>
         podeCancelarPedido(p, currentUser) ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation()
-              setPedidoParaCancelar(p)
-            }}
-          >
-            Cancelar
-          </Button>
+          <RowActionsMenu
+            actions={[
+              {
+                label: "Cancelar pedido",
+                destructive: true,
+                onSelect: () => setPedidoParaCancelar(p),
+              },
+            ]}
+          />
         ) : null,
     },
   ]

@@ -1,6 +1,6 @@
 'use client'
 
-import { Menu as MenuIcon, Search, Bell, ChevronRight } from 'lucide-react'
+import { Menu as MenuIcon, Bell, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Usuario } from '@/types/domain'
 import type { HeaderVariant } from '@/lib/shell-config'
@@ -13,7 +13,6 @@ export function TopHeader({
   headerVariant,
   crumbs,
   onOpenMobileNav,
-  onOpenSearch,
   onOpenNotifications,
   notificationCount,
 }: {
@@ -21,7 +20,6 @@ export function TopHeader({
   headerVariant: HeaderVariant
   crumbs: Crumb[]
   onOpenMobileNav: () => void
-  onOpenSearch: () => void
   onOpenNotifications: () => void
   notificationCount: number
 }) {
@@ -74,41 +72,23 @@ export function TopHeader({
 
       {/* Full-header controls */}
       {isFull && (
-        <>
-          <button
-            type="button"
-            onClick={onOpenSearch}
-            className={cn(
-              'flex h-8 items-center gap-2 rounded-md border border-border bg-background px-2.5 text-sm text-muted-foreground outline-none transition-colors',
-              'hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50',
-            )}
-            aria-label="Abrir busca global"
-          >
-            <Search className="size-4" />
-            <span className="hidden md:inline">Buscar…</span>
-            <kbd className="ml-4 hidden rounded border border-border px-1.5 font-mono text-[0.65rem] md:inline">
-              ⌘K
-            </kbd>
-          </button>
-
-          <button
-            type="button"
-            onClick={onOpenNotifications}
-            aria-label={
-              notificationCount > 0
-                ? `Notificações, ${notificationCount} não lidas`
-                : 'Notificações'
-            }
-            className="relative flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-          >
-            <Bell className="size-[18px]" />
-            {notificationCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 font-mono text-[0.6rem] leading-4 font-semibold text-destructive-foreground tabular-nums">
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </span>
-            )}
-          </button>
-        </>
+        <button
+          type="button"
+          onClick={onOpenNotifications}
+          aria-label={
+            notificationCount > 0
+              ? `Notificações, ${notificationCount} não lidas`
+              : 'Notificações'
+          }
+          className="relative flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+        >
+          <Bell className="size-[18px]" />
+          {notificationCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 font-mono text-[0.6rem] leading-4 font-semibold text-destructive-foreground tabular-nums">
+              {notificationCount > 9 ? '9+' : notificationCount}
+            </span>
+          )}
+        </button>
       )}
 
       <div className={cn('h-6 w-px bg-border', isFull ? 'mx-1' : 'ml-auto mr-1')} />

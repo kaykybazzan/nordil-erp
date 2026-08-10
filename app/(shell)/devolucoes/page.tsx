@@ -60,6 +60,7 @@ export default function DevolucoesPage() {
   const clientesStore = useClientesStore((s) => s.clientes)
   const carregarClientes = useClientesStore((s) => s.carregarClientes)
   const usuariosStore = useUsuariosStore((s) => s.usuarios)
+  const carregarUsuarios = useUsuariosStore((s) => s.carregarUsuarios)
   const carregarProdutos = useProdutosStore((s) => s.carregarProdutos)
   const carregarDevolucoes = useDevolucoesStore((s) => s.carregarDevolucoes)
 
@@ -83,11 +84,12 @@ export default function DevolucoesPage() {
         carregarPedidos(),
         carregarClientes(),
         carregarProdutos(),
+        carregarUsuarios(),
         carregarDevolucoes(),
       ])
     }, 700)
     return () => clearTimeout(t)
-  }, [carregarPedidos, carregarClientes, carregarProdutos, carregarDevolucoes])
+  }, [carregarPedidos, carregarClientes, carregarProdutos, carregarUsuarios, carregarDevolucoes])
 
   const clienteOptions = useMemo(
     () =>

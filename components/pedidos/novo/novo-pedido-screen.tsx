@@ -31,6 +31,9 @@ export function NovoPedidoScreen() {
 
   const [clienteId, setClienteId] = useState("")
   const [enderecoIdx, setEnderecoIdx] = useState(0)
+  const [enderecoAvulso, setEnderecoAvulso] = useState({
+    logradouro: "", numero: "", bairro: "", cidade: "", uf: "",
+  })
   const [itens, setItens] = useState<ItemForm[]>([newItem()])
   const [observacao, setObservacao] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -100,6 +103,12 @@ export function NovoPedidoScreen() {
     const errs: Record<string, string> = {}
     if (!clienteId) errs.cliente = "Selecione um cliente."
     if (enderecos.length > 0 && enderecoIdx < 0) errs.endereco = "Selecione um endereço."
+    if (clienteSelecionado && enderecos.length === 0) {
+      const { logradouro, numero, bairro, cidade, uf } = enderecoAvulso
+      if (!logradouro || !numero || !bairro || !cidade || !uf) {
+        errs.enderecoAvulso = "Preencha o endereço completo para este pedido."
+      }
+    }
 
     const itensValidos = itens.filter((i) => i.produtoId && parseFloat(i.quantidade) > 0)
     if (itensValidos.length === 0) errs.itens = "Adicione pelo menos um item com produto e quantidade válidos."
@@ -131,7 +140,7 @@ export function NovoPedidoScreen() {
           uf: enderecos[enderecoIdx].uf,
           cep: enderecos[enderecoIdx].cep,
         }
-      : { logradouro: "", numero: "", bairro: "", cidade: "", uf: "", cep: "" }
+      : { ...enderecoAvulso, cep: "" }
 
     const itensValidos = itens.filter((i) => i.produtoId && parseFloat(i.quantidade) > 0)
 
@@ -163,11 +172,17 @@ export function NovoPedidoScreen() {
       return
     }
 
-    showToast(
-      pedido.status === "CRIADO"
-        ? "Pedido criado, mas sem estoque disponível para reserva."
-        : "Pedido criado com sucesso!",
-    )
+    const itensSemEstoque = pedido.itens.filter((i) => i.status === "PENDENTE_ESTOQUE")
+
+    if (itensSemEstoque.length > 0) {
+      showToast(
+        pedido.status === "CRIADO"
+          ? "Pedido criado, mas sem estoque disponível para nenhum item."
+          : `Pedido criado. ${itensSemEstoque.length} ${itensSemEstoque.length === 1 ? "item" : "itens"} sem estoque suficiente.`,
+      )
+    } else {
+      showToast("Pedido criado com sucesso!")
+    }
     setTimeout(() => router.push("/pedidos"), 1200)
   }
 
@@ -204,7 +219,20 @@ export function NovoPedidoScreen() {
               </label>
               <select
                 value={clienteId}
-                onChange={(e) => { setClienteId(e.target.value); setEnderecoIdx(0) }}
+                onChange={(e) => {
+                  const novoId = e.target.value
+                  const temItemPreenchido = itens.some((i) => i.produtoId)
+                  if (clienteId && temItemPreenchido) {
+                    const confirmado = window.confirm(
+                      "Trocar de cliente vai limpar os itens já adicionados. Continuar?",
+                    )
+                    if (!confirmado) return
+                    setItens([newItem()])
+                  }
+                  setClienteId(novoId)
+                  setEnderecoIdx(0)
+                  setEnderecoAvulso({ logradouro: "", numero: "", bairro: "", cidade: "", uf: "" })
+                }}
                 className={cn(
                   "w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40",
                   errors.cliente ? "border-destructive" : "border-border",
@@ -236,6 +264,53 @@ export function NovoPedidoScreen() {
                     </option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {clienteSelecionado && enderecos.length === 0 && (
+              <div className="sm:col-span-2">
+                <p className="mb-2 text-xs text-warning">
+                  Este cliente não tem endereço cadastrado. Informe um endereço avulso para este pedido.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-6">
+                  <input
+                    value={enderecoAvulso.logradouro}
+                    onChange={(e) => setEnderecoAvulso((p) => ({ ...p, logradouro: e.target.value }))}
+                    placeholder="Logradouro"
+                    className={cn(
+                      "rounded-lg border bg-background px-3 py-2 text-sm text-foreground sm:col-span-2",
+                      errors.enderecoAvulso ? "border-destructive" : "border-border",
+                    )}
+                  />
+                  <input
+                    value={enderecoAvulso.numero}
+                    onChange={(e) => setEnderecoAvulso((p) => ({ ...p, numero: e.target.value }))}
+                    placeholder="Número"
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  />
+                  <input
+                    value={enderecoAvulso.bairro}
+                    onChange={(e) => setEnderecoAvulso((p) => ({ ...p, bairro: e.target.value }))}
+                    placeholder="Bairro"
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  />
+                  <input
+                    value={enderecoAvulso.cidade}
+                    onChange={(e) => setEnderecoAvulso((p) => ({ ...p, cidade: e.target.value }))}
+                    placeholder="Cidade"
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  />
+                  <input
+                    value={enderecoAvulso.uf}
+                    onChange={(e) => setEnderecoAvulso((p) => ({ ...p, uf: e.target.value.toUpperCase() }))}
+                    placeholder="UF"
+                    maxLength={2}
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  />
+                </div>
+                {errors.enderecoAvulso && (
+                  <p className="mt-1 text-xs text-destructive">{errors.enderecoAvulso}</p>
+                )}
               </div>
             )}
           </div>

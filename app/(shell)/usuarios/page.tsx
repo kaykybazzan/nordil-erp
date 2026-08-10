@@ -14,6 +14,7 @@ import type { Usuario, PapelUsuario, FuncaoUsuario } from "@/types/domain"
 import { useToast } from "@/components/ui/simple-toast"
 import { Dialog } from "@base-ui/react/dialog"
 import { Copy, Check } from "lucide-react"
+import { RowActionsMenu } from "@/components/ui/row-actions-menu"
 
 const PAGE_SIZE = 30
 
@@ -185,16 +186,24 @@ export default function UsuariosPage() {
       id: "acoes",
       header: "",
       cell: (u) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation()
-            setUsuarioParaAlternar(u)
-          }}
-        >
-          {u.status === "ativo" ? "Inativar" : "Ativar"}
-        </Button>
+        <div className="flex justify-end">
+          <RowActionsMenu
+            actions={[
+              {
+                label: "Editar",
+                onSelect: () => {
+                  setUsuarioEditando(u)
+                  setDrawerAberto(true)
+                },
+              },
+              {
+                label: u.status === "ativo" ? "Inativar" : "Ativar",
+                onSelect: () => setUsuarioParaAlternar(u),
+                destructive: u.status === "ativo",
+              },
+            ]}
+          />
+        </div>
       ),
     },
   ]
@@ -227,7 +236,7 @@ export default function UsuariosPage() {
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
         <input
           value={buscaInput}
           onChange={(e) => setBuscaInput(e.target.value)}
@@ -235,58 +244,79 @@ export default function UsuariosPage() {
           className="h-8 w-64 rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         />
 
-        <div className="flex flex-wrap gap-1">
-          {ROLE_FILTROS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => toggleSetValue(roleFiltro, opt.value, setRoleFiltro)}
-              className={
-                "h-7 rounded-full border px-2.5 text-xs font-medium transition-colors " +
-                (roleFiltro.has(opt.value)
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground")
-              }
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="hidden h-5 w-px bg-border sm:block" aria-hidden />
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">
+            Papel
+          </span>
+          <div className="flex flex-wrap gap-1">
+            {ROLE_FILTROS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => toggleSetValue(roleFiltro, opt.value, setRoleFiltro)}
+                className={
+                  "h-7 rounded-full border px-2.5 text-xs font-medium transition-colors " +
+                  (roleFiltro.has(opt.value)
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground")
+                }
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-1">
-          {FUNCAO_FILTROS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => toggleSetValue(funcaoFiltro, opt.value, setFuncaoFiltro)}
-              className={
-                "h-7 rounded-full border px-2.5 text-xs font-medium transition-colors " +
-                (funcaoFiltro.has(opt.value)
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground")
-              }
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="hidden h-5 w-px bg-border sm:block" aria-hidden />
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">
+            Função
+          </span>
+          <div className="flex flex-wrap gap-1">
+            {FUNCAO_FILTROS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => toggleSetValue(funcaoFiltro, opt.value, setFuncaoFiltro)}
+                className={
+                  "h-7 rounded-full border px-2.5 text-xs font-medium transition-colors " +
+                  (funcaoFiltro.has(opt.value)
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground")
+                }
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-1">
-          {(["ativo", "inativo"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => toggleSetValue(statusFiltro, value, setStatusFiltro)}
-              className={
-                "h-7 rounded-full border px-2.5 text-xs font-medium transition-colors " +
-                (statusFiltro.has(value)
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground")
-              }
-            >
-              {value === "ativo" ? "Ativo" : "Inativo"}
-            </button>
-          ))}
+        <div className="hidden h-5 w-px bg-border sm:block" aria-hidden />
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">
+            Status
+          </span>
+          <div className="flex flex-wrap gap-1">
+            {(["ativo", "inativo"] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => toggleSetValue(statusFiltro, value, setStatusFiltro)}
+                className={
+                  "h-7 rounded-full border px-2.5 text-xs font-medium transition-colors " +
+                  (statusFiltro.has(value)
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground")
+                }
+              >
+                {value === "ativo" ? "Ativo" : "Inativo"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

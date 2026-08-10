@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import type { NavItem } from '@/lib/shell-config'
-
+import Image from 'next/image'
 export function Sidebar({
   nav,
   company,
@@ -32,19 +32,27 @@ export function Sidebar({
           collapsed ? 'justify-center px-0' : 'gap-2.5 px-4',
         )}
       >
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-          <span className="text-[15px] font-bold tracking-tight">N</span>
+        <div className="flex h-8 shrink-0 items-center">
+          {collapsed ? (
+            <Image
+              src="/logo-N.png"
+              alt="Nordil"
+              width={32}
+              height={32}
+              className="size-8 object-contain"
+              priority
+            />
+          ) : (
+            <Image
+              src="/logo-2.png"
+              alt="Nordil Distribuição"
+              width={140}
+              height={32}
+              className="h-8 w-auto object-contain"
+              priority
+            />
+          )}
         </div>
-        {!collapsed && (
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-semibold text-sidebar-accent-foreground">
-              {company}
-            </span>
-            <span className="truncate text-[0.68rem] text-sidebar-foreground/70">
-              Sistema de Depósito
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Nav */}

@@ -108,9 +108,9 @@ export default function DashboardPage() {
   )
 
   return (
-      <div className="flex flex-col gap-6">
+      <div className="flex h-full min-h-0 flex-col gap-3">
         {/* KPIs — iguais para Admin e Supervisor */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <KpiCard
             label="Aguardando separação"
             value={aguardando.value ?? 0}
@@ -170,96 +170,106 @@ export default function DashboardPage() {
         </div>
 
         {/* Visão do funil + alertas + atividade */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr_1fr]">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[1.3fr_1fr_1fr]">
+          <div className="flex min-h-0 flex-col rounded-lg border border-border bg-card p-3">
+            <div className="mb-2 flex shrink-0 items-center gap-2 text-sm font-medium text-foreground">
               <PieChartIcon className="h-4 w-4 text-muted-foreground" />
               Pedidos por status
             </div>
-            {carregandoPedidos ? (
-              <div className="flex items-center gap-6">
-                <div className="h-[180px] w-[180px] shrink-0 animate-pulse rounded-full bg-muted" />
-                <div className="flex flex-1 flex-col gap-2">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="h-4 w-full animate-pulse rounded bg-muted" />
-                  ))}
+            <div className="min-h-0 flex-1 overflow-auto">
+              {carregandoPedidos ? (
+                <div className="flex items-center gap-6">
+                  <div className="h-[150px] w-[150px] shrink-0 animate-pulse rounded-full bg-muted" />
+                  <div className="flex flex-1 flex-col gap-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="h-4 w-full animate-pulse rounded bg-muted" />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <StatusDonutChart dados={statusDistribuicao.value ?? []} />
-            )}
+              ) : (
+                <StatusDonutChart dados={statusDistribuicao.value ?? []} />
+              )}
+            </div>
           </div>
 
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+          <div className="flex min-h-0 flex-col rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex shrink-0 items-center gap-2 text-sm font-medium text-foreground">
               <Bell className="h-4 w-4 text-muted-foreground" />
               Alertas
             </div>
-            <AlertList alertas={alertas.value ?? []} status={alertas.status} />
+            <div className="min-h-0 flex-1 overflow-auto">
+              <AlertList alertas={alertas.value ?? []} status={alertas.status} />
+            </div>
           </div>
 
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+          <div className="flex min-h-0 flex-col rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex shrink-0 items-center gap-2 text-sm font-medium text-foreground">
               <Activity className="h-4 w-4 text-muted-foreground" />
               Atividade recente
             </div>
-            {carregandoPedidos ? (
-              <div className="flex flex-col gap-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-8 w-full animate-pulse rounded bg-muted" />
-                ))}
-              </div>
-            ) : (
-              <ActivityFeed itens={atividadeRecente.value ?? []} />
-            )}
+            <div className="min-h-0 flex-1 overflow-auto">
+              {carregandoPedidos ? (
+                <div className="flex flex-col gap-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-8 w-full animate-pulse rounded bg-muted" />
+                  ))}
+                </div>
+              ) : (
+                <ActivityFeed itens={atividadeRecente.value ?? []} />
+              )}
+            </div>
           </div>
         </div>
 
         {/* Tendência de volume + resumo do período */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="rounded-lg border border-border bg-card p-4 lg:col-span-2">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-3">
+          <div className="flex min-h-0 flex-col rounded-lg border border-border bg-card p-3 lg:col-span-2">
+            <div className="mb-2 flex shrink-0 items-center gap-2 text-sm font-medium text-foreground">
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
               Pedidos criados nos últimos 7 dias
             </div>
-            {carregandoPedidos ? (
-              <div className="h-[200px] w-full animate-pulse rounded bg-muted" />
-            ) : (
-              <TendenciaChart dados={tendencia7dias.value ?? []} />
-            )}
+            <div className="min-h-0 flex-1">
+              {carregandoPedidos ? (
+                <div className="h-full w-full animate-pulse rounded bg-muted" />
+              ) : (
+                <TendenciaChart dados={tendencia7dias.value ?? []} />
+              )}
+            </div>
           </div>
 
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+          <div className="flex min-h-0 flex-col rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex shrink-0 items-center gap-2 text-sm font-medium text-foreground">
               <Receipt className="h-4 w-4 text-muted-foreground" />
               Resumo dos últimos 7 dias
             </div>
-            {carregandoPedidos ? (
-              <div className="flex flex-col gap-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-4 w-full animate-pulse rounded bg-muted" />
-                ))}
-              </div>
-            ) : (
-              <ResumoPeriodo
-                dados={
-                  resumoPeriodo.value ?? {
-                    totalPedidos: 0,
-                    totalFaturado: 0,
-                    itensMovimentados: 0,
-                    clientesAtendidos: 0,
+            <div className="min-h-0 flex-1 overflow-auto">
+              {carregandoPedidos ? (
+                <div className="flex flex-col gap-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-4 w-full animate-pulse rounded bg-muted" />
+                  ))}
+                </div>
+              ) : (
+                <ResumoPeriodo
+                  dados={
+                    resumoPeriodo.value ?? {
+                      totalPedidos: 0,
+                      totalFaturado: 0,
+                      itensMovimentados: 0,
+                      clientesAtendidos: 0,
+                    }
                   }
-                }
-              />
-            )}
+                />
+              )}
+            </div>
           </div>
         </div>
 
         {/* Extras — só Supervisor */}
         {isSupervisor && (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-2">
+            <div className="flex min-h-0 flex-col rounded-lg border border-border bg-card p-3">
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                 <GaugeCircle className="h-4 w-4 text-muted-foreground" />
                 Gargalo atual
               </div>
@@ -280,8 +290,8 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="rounded-lg border p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+            <div className="flex min-h-0 flex-col rounded-lg border border-border bg-card p-3">
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 Produtividade por etapa
               </div>

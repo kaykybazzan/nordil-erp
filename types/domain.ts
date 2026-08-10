@@ -359,3 +359,15 @@ export type AcaoAuditoria = (typeof ACOES_AUDITORIA)[number]
 export const TIPOS_SEQUENCIA_NUMERACAO = ["PEDIDO", "NF", "OS", "INVENTARIO"] as const
 
 export type TipoSequenciaNumeracao = (typeof TIPOS_SEQUENCIA_NUMERACAO)[number]
+
+
+export interface Notificacao {
+  id: string
+  tipo: TipoPedidoEvento | "ESTOQUE_ABAIXO_MINIMO" | "DEVOLUCAO_SOLICITADA" | "PEDIDO_ATRASADO"
+  mensagem: string
+  href: string
+  destinatarioRole?: PapelUsuario
+  destinatarioFuncao?: FuncaoUsuario
+  criadoEm: string
+  lida: boolean
+}

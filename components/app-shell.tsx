@@ -15,11 +15,15 @@ import type { Usuario } from '@/types/domain'
 import { getNavForUsuario, getHeaderVariant, type NavItem } from '@/lib/shell-config'
 import { Sidebar } from './shell/sidebar'
 import { TopHeader, type Crumb } from './shell/top-header'
-import { CommandPalette } from './shell/command-palette'
 import { NotificationsDrawer } from './shell/notifications-drawer'
+import { useKpi } from '@/lib/use-kpi'
+import { actionObterPedidos } from '@/lib/actions/pedidos'
+import { listarProdutos } from '@/lib/actions/produtos'
+import { actionCarregarInventarios } from '@/lib/actions/estoque'
+import { actionListarDevolucoes } from '@/lib/actions/devolucoes'
+import { getNotificacoes } from '@/lib/notifications'
 
 const COLLAPSE_KEY = 'wms.sidebar.collapsed'
-const INITIAL_NOTIFICATIONS = 3
 
 export function AppShell({
   usuario,
@@ -30,10 +34,31 @@ export function AppShell({
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
-  const [notifCount, setNotifCount] = useState(INITIAL_NOTIFICATIONS)
+  const [notifCount, setNotifCount] = useState(0)
   const [profileReady, setProfileReady] = useState(false)
+
+  const notificacoesKpi = useKpi(async () => {
+  const [pedidosRes, produtosRes, inventariosRes, devolucoesRes] = await Promise.all([
+    actionObterPedidos(),
+    listarProdutos(),
+    actionCarregarInventarios(),
+    actionListarDevolucoes({ status: "SOLICITADA" }),
+  ])
+
+  const pedidos = pedidosRes.ok ? pedidosRes.data ?? [] : []
+  const produtos = produtosRes.ok ? produtosRes.data ?? [] : []
+  const inventarios = inventariosRes.ok ? inventariosRes.data ?? [] : []
+  const devolucoes = devolucoesRes.ok ? devolucoesRes.data ?? [] : []
+
+  return getNotificacoes(usuario, pedidos, produtos, inventarios, devolucoes)
+}, [usuario])
+
+  const notificacoes = notificacoesKpi.value ?? []
+
+  useEffect(() => {
+    if (!notifOpen) setNotifCount(notificacoes.length)
+  }, [notificacoes, notifOpen])
 
   const pathname = usePathname()
   const nav = useMemo(() => getNavForUsuario(usuario), [usuario])
@@ -63,31 +88,37 @@ export function AppShell({
 
   const openNotifications = useCallback(() => {
     setNotifOpen(true)
-    setNotifCount(0) // badge clears once the drawer is opened
+    setNotifCount(0)
   }, [])
 
-  // Keyboard shortcuts: Cmd/Ctrl+K (search, full header only), Cmd/Ctrl+B (collapse).
+  // Keyboard shortcuts: Cmd/Ctrl+B (collapse).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey
       if (!mod) return
       const key = e.key.toLowerCase()
-      if (key === 'k' && isFull) {
-        e.preventDefault()
-        setSearchOpen((o) => !o)
-      } else if (key === 'b') {
+      if (key === 'b') {
         e.preventDefault()
         toggleCollapse()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [isFull, toggleCollapse])
+  }, [toggleCollapse])
 
-  const activeItem = useMemo(
-    () => nav.find((n: NavItem) => n.href === pathname) ?? nav[0],
-    [nav, pathname],
-  )
+  const activeItem = useMemo(() => {
+  // Match exato primeiro (ex: pathname === '/pedidos')
+  const exact = nav.find((n: NavItem) => n.href === pathname)
+  if (exact) return exact
+
+  // Match por prefixo pra rotas aninhadas (ex: '/pedidos/1011' -> item 'Pedidos')
+  // Ordena por href mais longo primeiro pra evitar que '/' capture tudo antes de rotas mais específicas.
+  const byPrefix = [...nav]
+    .sort((a, b) => b.href.length - a.href.length)
+    .find((n: NavItem) => n.href !== '/' && pathname.startsWith(n.href + '/'))
+
+  return byPrefix ?? nav[0]
+}, [nav, pathname])
 
   const crumbs: Crumb[] = useMemo(() => {
     const base: Crumb[] = [
@@ -152,7 +183,6 @@ export function AppShell({
             headerVariant={headerVariant}
             crumbs={crumbs}
             onOpenMobileNav={() => setMobileNavOpen(true)}
-            onOpenSearch={() => setSearchOpen(true)}
             onOpenNotifications={openNotifications}
             notificationCount={notifCount}
           />
@@ -163,14 +193,7 @@ export function AppShell({
         </div>
 
         {isFull && (
-          <>
-            <CommandPalette
-              open={searchOpen}
-              onOpenChange={setSearchOpen}
-              nav={nav}
-            />
-            <NotificationsDrawer open={notifOpen} onOpenChange={setNotifOpen} />
-          </>
+          <NotificationsDrawer open={notifOpen} onOpenChange={setNotifOpen} notificacoes={notificacoes} />
         )}
       </div>
     </Tooltip.Provider>

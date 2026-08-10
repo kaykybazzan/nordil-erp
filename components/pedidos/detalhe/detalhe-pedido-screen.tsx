@@ -70,6 +70,7 @@ export function DetalhePedidoScreen({ pedidoId }: DetalhePedidoScreenProps) {
   const carregarClientes = useClientesStore((s) => s.carregarClientes)
 
   const usuariosStore = useUsuariosStore((s) => s.usuarios)
+  const carregarUsuarios = useUsuariosStore((s) => s.carregarUsuarios)
 
   function showToast(msg: string) {
     if (toastTimer.current) clearTimeout(toastTimer.current)
@@ -83,6 +84,7 @@ export function DetalhePedidoScreen({ pedidoId }: DetalhePedidoScreenProps) {
         carregarPedidos(),
         carregarProdutos(),
         carregarClientes(),
+        carregarUsuarios(),
       ])
       const found = pedidosStore.find((p) => p.id === pedidoId)
       if (found) setPedido({ ...found })
@@ -90,7 +92,7 @@ export function DetalhePedidoScreen({ pedidoId }: DetalhePedidoScreenProps) {
       setLoading(false)
     }, 700)
     return () => clearTimeout(t)
-  }, [carregarPedidos, carregarProdutos, carregarClientes, pedidosStore, pedidoId])
+  }, [carregarPedidos, carregarProdutos, carregarClientes, carregarUsuarios, pedidosStore, pedidoId])
 
   function handleAprovar() {
     if (!pedido) return

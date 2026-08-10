@@ -12,6 +12,7 @@ import type { Pedido, StatusPedido, Produto, InventarioEstoque, TipoPedidoEvento
 // virar configurável por empresa, entra como parâmetro nessas funções.
 const LIMIAR_RESERVADO_HORAS = 24
 const LIMIAR_SEPARACAO_HORAS = 48
+const LIMIAR_CONFERENCIA_HORAS = 12
 
 function horasDesde(dataIso: string): number {
     return (Date.now() - new Date(dataIso).getTime()) / (1000 * 60 * 60)
@@ -38,12 +39,31 @@ function ehOntem(dataIso: string): boolean {
     )
 }
 
+function getIntervaloOntemAgora(): { from: Date; to: Date } {
+    const agora = new Date()
+    const ontem = new Date(agora)
+    ontem.setDate(ontem.getDate() - 1)
+
+    // from: ontem às 00:00:00
+    const from = new Date(ontem)
+    from.setHours(0, 0, 0, 0)
+
+    // to: ontem no mesmo horário de agora
+    const to = new Date(ontem)
+    to.setHours(agora.getHours(), agora.getMinutes(), agora.getSeconds(), agora.getMilliseconds())
+
+    return { from, to }
+}
+
 export function isAtrasado(pedido: Pedido): boolean {
     if (pedido.status === "RESERVADO") {
         return horasDesde(pedido.statusAlteradoEm) > LIMIAR_RESERVADO_HORAS
     }
     if (pedido.status === "EM_SEPARACAO") {
         return horasDesde(pedido.statusAlteradoEm) > LIMIAR_SEPARACAO_HORAS
+    }
+    if (pedido.status === "EM_CONFERENCIA") {
+        return horasDesde(pedido.statusAlteradoEm) > LIMIAR_CONFERENCIA_HORAS
     }
     return false
 }
@@ -77,11 +97,25 @@ export function getCanceladosHoje(pedidos: Pedido[]): Pedido[] {
 }
 
 export function getEntreguesOntem(pedidos: Pedido[]): Pedido[] {
-    return pedidos.filter((p) => p.status === "ENTREGUE" && ehOntem(p.statusAlteradoEm))
+    const { from, to } = getIntervaloOntemAgora()
+    return pedidos.filter((p) => {
+        if (p.status !== "ENTREGUE") return false
+        const eventoEntrega = p.eventos.find((e) => e.tipo === "PEDIDO_ENTREGUE")
+        if (!eventoEntrega) return false
+        const dataEvento = new Date(eventoEntrega.dataHora)
+        return dataEvento >= from && dataEvento <= to
+    })
 }
 
 export function getCanceladosOntem(pedidos: Pedido[]): Pedido[] {
-    return pedidos.filter((p) => p.status === "CANCELADO" && ehOntem(p.statusAlteradoEm))
+    const { from, to } = getIntervaloOntemAgora()
+    return pedidos.filter((p) => {
+        if (p.status !== "CANCELADO") return false
+        const eventoCancelamento = p.eventos.find((e) => e.tipo === "PEDIDO_CANCELADO")
+        if (!eventoCancelamento) return false
+        const dataEvento = new Date(eventoCancelamento.dataHora)
+        return dataEvento >= from && dataEvento <= to
+    })
 }
 
 export interface Delta {
