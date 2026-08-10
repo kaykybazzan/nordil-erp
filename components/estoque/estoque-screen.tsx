@@ -15,7 +15,7 @@ import {
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { Produto } from "@/types/domain"
-import { CATEGORIAS } from "@/lib/mock-inventario"
+import { CATEGORIAS } from "@/lib/inventario-utils"
 import { actionCarregarInventarios } from "@/lib/actions/estoque"
 import { ProdutoDrawer, type SaveResult } from "@/components/produtos/produto-drawer"
 import { InventarioStatusBadge } from "./inventario-status-badge"

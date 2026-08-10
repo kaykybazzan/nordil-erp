@@ -1,7 +1,8 @@
 import type { Produto } from "@/types/domain"
 import { prisma } from "@/lib/db"
 import { obterMovimentacoes } from "@/lib/estoque-ledger"
-import { obterCategoriaProduto, calcularInventario } from "@/lib/mock-inventario"
+import { obterCategoriaProduto } from "@/lib/inventario-utils"
+import { calcularInventario } from "@/lib/inventario-server"
 import { diasDesdeUltimaMovimentacao } from "@/lib/relatorios-utils"
 
 export interface IndicadoresEstoque {

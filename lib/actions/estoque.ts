@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth"
 import { aplicarMovimentacao, obterMovimentacoes } from "@/lib/estoque-ledger"
-import { carregarInventarios } from "@/lib/mock-inventario"
+import { carregarInventarios } from "@/lib/inventario-server"
 import { calcularIndicadoresEstoque } from "@/lib/relatorios-estoque"
 import { calcularIndicadoresMovimentacoes } from "@/lib/relatorios-movimentacoes"
 import { z } from "zod"

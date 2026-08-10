@@ -7,7 +7,7 @@ import { actionListarInventarios, actionAbrirInventario } from "@/lib/actions/in
 import { podeAbrirInventario } from "@/lib/policies"
 import { actionObterUsuarios } from "@/lib/actions/usuarios"
 import { listarProdutos } from "@/lib/actions/produtos"
-import { CATEGORIAS } from "@/lib/mock-inventario"
+import { CATEGORIAS } from "@/lib/inventario-utils"
 import type { StatusInventarioContagem, TipoEscopoInventario } from "@/types/domain"
 import { DataTable, type DataTableColumn, type DataTableSort } from "@/components/ui/data-table"
 import { Modal } from "@/components/ui/modal"

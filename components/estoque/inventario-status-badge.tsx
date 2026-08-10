@@ -2,7 +2,7 @@
 
 import { Tooltip } from "@base-ui/react/tooltip"
 import { AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react"
-import type { InventarioStatus } from "@/lib/mock-inventario"
+import type { InventarioStatus } from "@/lib/inventario-utils"
 
 export function InventarioStatusBadge({
   status,
