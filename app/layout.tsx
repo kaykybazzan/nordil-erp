@@ -58,9 +58,9 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${plexSans.variable} ${plexMono.variable} ${poppins.variable} ${sora.variable} ${spaceGrotesk.variable} bg-background`}
+      className={`${plexSans.variable} ${plexMono.variable} ${poppins.variable} ${sora.variable} ${spaceGrotesk.variable} bg-background h-full`}
     >
-      <body className="font-sans antialiased">
+      <body className="h-full font-sans antialiased">
         <SessionProvider>
           {children}
         </SessionProvider>

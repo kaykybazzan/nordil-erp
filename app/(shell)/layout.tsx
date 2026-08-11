@@ -21,8 +21,16 @@ export default function ShellLayout({
   }, [currentUser?.precisaTrocarSenha, router])
 
   // Não renderiza o shell enquanto carregando ou precisa trocar senha
-  if (loading || !currentUser || currentUser.precisaTrocarSenha) {
+  if (currentUser?.precisaTrocarSenha) {
     return null
+  }
+
+  if (loading || !currentUser) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+      </div>
+    )
   }
 
   return <AppShell usuario={currentUser}>{children}</AppShell>
