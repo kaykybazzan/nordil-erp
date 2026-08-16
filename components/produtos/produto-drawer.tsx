@@ -43,6 +43,8 @@ export function ProdutoDrawer({
   const [preco, setPreco] = useState("")
   const [custo, setCusto] = useState("")
   const [estoqueMinimo, setEstoqueMinimo] = useState("")
+  const [corredor, setCorredor] = useState("")
+  const [categoria, setCategoria] = useState("")
   const [status, setStatus] = useState<Produto["status"]>("ativo")
 
   const [deactivateConfirm, setDeactivateConfirm] = useState(false)
@@ -69,6 +71,8 @@ export function ProdutoDrawer({
       produto ? String(produto.custo).replace(".", ",") : "",
     )
     setEstoqueMinimo(produto ? String(produto.estoqueMinimo) : "10")
+    setCorredor(produto?.corredor ?? "")
+    setCategoria(produto?.categoria ?? "")
     setStatus(produto?.status ?? "ativo")
     setDeactivateConfirm(false)
     setSaving(false)
@@ -125,6 +129,8 @@ export function ProdutoDrawer({
       custo: isAdmin ? custoNum : 0,
       precoVenda: isAdmin ? precoNum : 0,
       estoqueMinimo: estoqueMinimoNum,
+      corredor: corredor.trim() || undefined,
+      categoria: categoria.trim() || undefined,
       status,
       estoqueAtual: produto?.estoqueAtual ?? 0, // Backend ignora este campo
     }
@@ -474,6 +480,42 @@ export function ProdutoDrawer({
                   readonly && "bg-muted/50 text-muted-foreground cursor-not-allowed"
                 )}
               />
+            </div>
+
+            {/* Corredor + Categoria */}
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              <div>
+                <label
+                  htmlFor="prd-corredor"
+                  className="mb-1 block text-xs font-medium text-foreground"
+                >
+                  Corredor
+                </label>
+                <input
+                  id="prd-corredor"
+                  value={corredor}
+                  onChange={(e) => setCorredor(e.target.value)}
+                  placeholder="Ex: A1"
+                  disabled={readonly}
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:bg-muted/50 disabled:text-muted-foreground disabled:cursor-not-allowed"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="prd-categoria"
+                  className="mb-1 block text-xs font-medium text-foreground"
+                >
+                  Categoria
+                </label>
+                <input
+                  id="prd-categoria"
+                  value={categoria}
+                  onChange={(e) => setCategoria(e.target.value)}
+                  placeholder="Ex: Disjuntores"
+                  disabled={readonly}
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:bg-muted/50 disabled:text-muted-foreground disabled:cursor-not-allowed"
+                />
+              </div>
             </div>
 
             {/* Permite fracionado */}

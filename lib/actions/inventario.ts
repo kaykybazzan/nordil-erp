@@ -115,7 +115,7 @@ async function resolverProdutosDoEscopo(
     case "LISTA_MANUAL":
       return listaManualProdutoIds ? produtos.filter((p) => listaManualProdutoIds.includes(p.id)) : []
     case "ESTOQUE_BAIXO":
-      return produtos.filter((p) => p.estoqueAtual <= (p.estoqueMinimo ?? 10))
+      return produtos.filter((p) => Number(p.estoqueAtual) <= (p.estoqueMinimo ?? 10))
     case "TODOS_PRODUTOS":
       return produtos
     default:
@@ -224,7 +224,7 @@ export async function actionAbrirInventario(input: AbrirInventarioInput) {
           data: {
             inventarioId: novoInventario.id,
             produtoId: produto.id,
-            saldoEsperado: produto.estoqueAtual,
+            saldoEsperado: Number(produto.estoqueAtual),
             ultimaMovimentacaoId,
             quantidadeContada: null,
             status: "PENDENTE",
@@ -347,7 +347,7 @@ export async function actionRecontarItem(input: ItemInventarioInput) {
     const itemAtualizado = await prisma.inventarioItem.update({
       where: { id: item.id },
       data: {
-        saldoEsperado: produto.estoqueAtual,
+        saldoEsperado: Number(produto.estoqueAtual),
         ultimaMovimentacaoId: novaUltimaMovimentacaoId,
         quantidadeContada: null,
         status: "PENDENTE",

@@ -236,6 +236,26 @@ export async function actionCriarEntrada(input: CriarEntradaInput) {
     return { ok: false, error: "Já existe uma entrada com esta nota fiscal deste fornecedor" }
   }
 
+  // Validar fornecedor pertence à empresa
+  const fornecedor = await prisma.fornecedor.findUnique({
+    where: { id: input.fornecedorId },
+    select: { empresaId: true },
+  })
+  if (!fornecedor || fornecedor.empresaId !== session.user.empresaId) {
+    return { ok: false, error: "Fornecedor não encontrado" }
+  }
+
+  // Validar produtos pertencem à empresa
+  for (const item of input.itens) {
+    const produto = await prisma.produto.findUnique({
+      where: { id: item.produtoId },
+      select: { empresaId: true },
+    })
+    if (!produto || produto.empresaId !== session.user.empresaId) {
+      return { ok: false, error: "Produto não encontrado" }
+    }
+  }
+
   try {
     const resultado = await prisma.$transaction(async (tx) => {
       // Criar entrada

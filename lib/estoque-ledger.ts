@@ -8,10 +8,11 @@ export async function aplicarMovimentacao(input: {
   pedidoId?: string
   direcao?: "ENTRADA" | "SAIDA"
   usuarioId: string
+  empresaId: string
 }, tx?: any): Promise<void> {
   const db = tx ?? prisma
 
-  // Buscar empresaId do produto
+  // Buscar produto e validar empresaId
   const produto = await db.produto.findUnique({
     where: { id: input.produtoId },
     select: { empresaId: true },
@@ -21,9 +22,40 @@ export async function aplicarMovimentacao(input: {
     throw new Error("Produto não encontrado")
   }
 
+  if (produto.empresaId !== input.empresaId) {
+    throw new Error("Produto não encontrado")
+  }
+
+  // Determinar se é entrada (incrementa) ou saída (decrementa) do estoque físico
+  // RESERVA e LIBERACAO_RESERVA não afetam estoqueAtual, apenas o cálculo de reservado
+  let delta: number | null = null
+  switch (input.tipo) {
+    case "ENTRADA":
+    case "ENTRADA_DEVOLUCAO":
+      delta = input.quantidade
+      break
+    case "SAIDA":
+      delta = -input.quantidade
+      break
+    case "AJUSTE":
+      if (input.direcao === "ENTRADA") {
+        delta = input.quantidade
+      } else if (input.direcao === "SAIDA") {
+        delta = -input.quantidade
+      } else {
+        throw new Error("Movimentação do tipo AJUSTE requer direcao ENTRADA ou SAIDA")
+      }
+      break
+    case "RESERVA":
+    case "LIBERACAO_RESERVA":
+      // Não afeta estoque físico, apenas reservado
+      break
+  }
+
+  // Criar movimentação no ledger
   await db.estoqueMovimentacao.create({
     data: {
-      empresaId: produto.empresaId,
+      empresaId: input.empresaId,
       produtoId: input.produtoId,
       tipo: input.tipo,
       quantidade: input.quantidade,
@@ -32,6 +64,14 @@ export async function aplicarMovimentacao(input: {
       usuarioId: input.usuarioId,
     },
   })
+
+  // Atualizar estoqueAtual de forma atômica se houver delta
+  if (delta !== null) {
+    await db.produto.update({
+      where: { id: input.produtoId },
+      data: { estoqueAtual: { increment: delta } },
+    })
+  }
 }
 
 // Wrapper para compatibilidade com código legado que ainda usa registrarMovimentacao
@@ -54,6 +94,7 @@ export async function registrarMovimentacao(movimentacao: {
     pedidoId: movimentacao.pedidoId,
     direcao: movimentacao.direcao,
     usuarioId: movimentacao.usuarioId,
+    empresaId: movimentacao.empresaId,
   })
 }
 

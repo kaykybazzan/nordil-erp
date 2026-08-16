@@ -71,7 +71,7 @@ export async function calcularIndicadoresEstoque(
     custo: Number(p.custo),
     precoVenda: Number(p.precoVenda),
     status: p.status as "ativo" | "inativo",
-    estoqueAtual: p.estoqueAtual,
+    estoqueAtual: Number(p.estoqueAtual),
     corredor: p.corredor ?? undefined,
     categoria: p.categoria ?? undefined,
     fornecedor: p.fornecedor ?? undefined,

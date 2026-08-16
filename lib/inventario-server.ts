@@ -60,7 +60,7 @@ export async function carregarInventarios(empresaId: string): Promise<(Inventari
       custo: Number(produto.custo),
       precoVenda: Number(produto.precoVenda),
       status: produto.status as "ativo" | "inativo",
-      estoqueAtual: produto.estoqueAtual,
+      estoqueAtual: Number(produto.estoqueAtual),
       corredor: produto.corredor ?? undefined,
       categoria: produto.categoria ?? undefined,
       fornecedor: produto.fornecedor ?? undefined,

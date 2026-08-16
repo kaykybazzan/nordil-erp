@@ -42,6 +42,7 @@ export async function actionAplicarMovimentacao(input: {
       pedidoId: input.pedidoId,
       direcao: input.direcao,
       usuarioId: session.user.id,
+      empresaId: session.user.empresaId,
     }, tx)
     return { ok: true, data: null }
   } catch (error) {

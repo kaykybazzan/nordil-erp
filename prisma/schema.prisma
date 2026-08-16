@@ -136,7 +136,7 @@ model Produto {
   custo               Decimal  @db.Decimal(12, 2)
   precoVenda          Decimal  @db.Decimal(12, 2)
   status              String   @default("ativo") // ativo | inativo
-  estoqueAtual        Int      @default(0) // fonte de leitura rápida — nunca editável diretamente por formulário, só via EstoqueService (módulo futuro)
+  estoqueAtual        Decimal  @db.Decimal(12, 3) @default(0) // fonte de leitura rápida — nunca editável diretamente por formulário, só via EstoqueService (módulo futuro)
   corredor            String?
   categoria           String?
   fornecedor          String?
