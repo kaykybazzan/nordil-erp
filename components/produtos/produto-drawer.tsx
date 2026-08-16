@@ -17,6 +17,8 @@ import { useCurrentUser } from "@/lib/auth-context"
 
 export type SaveResult = { ok: true } | { ok: false; error: string }
 
+type ProdutoInput = Omit<Produto, "id"> & { id?: string }
+
 export function ProdutoDrawer({
   open,
   produto,
@@ -27,7 +29,7 @@ export function ProdutoDrawer({
   open: boolean
   produto: Produto | null
   onOpenChange: (open: boolean) => void
-  onSave: (produto: Produto) => Promise<SaveResult>
+  onSave: (produto: ProdutoInput) => Promise<SaveResult>
   readonly?: boolean
 }) {
   const isEdit = Boolean(produto)
@@ -109,8 +111,8 @@ export function ProdutoDrawer({
     if (!podeSalvar) return
     setFormError(null)
     setSaving(true)
-    const payload: Produto = {
-      id: produto?.id ?? `prd-${Math.random().toString(36).slice(2, 9)}`,
+    const payload: ProdutoInput = {
+      id: produto?.id,
       empresaId: produto?.empresaId ?? currentUser.empresaId,
       // SKU nunca é digitado: mantém o existente ou fica vazio (gerado ao salvar).
       skuInterno: produto?.skuInterno ?? "",

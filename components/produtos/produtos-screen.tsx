@@ -127,9 +127,7 @@ export function ProdutosScreen() {
   }
 
   const salvarProduto = useCallback(
-    async (payload: Produto): Promise<SaveResult> => {
-      const isEdit = Boolean(payload.id)
-      
+    async (payload: Omit<Produto, "id"> & { id?: string }): Promise<SaveResult> => {
       // Prepara input para Server Action (remove campos que não devem ser enviados)
       const input = {
         skuInterno: payload.skuInterno || `PRD-${Date.now()}`, // Backend pode gerar se vazio
@@ -146,7 +144,7 @@ export function ProdutosScreen() {
       }
 
       let resultado
-      if (isEdit) {
+      if (payload.id) {
         resultado = await atualizarProduto(payload.id, input)
       } else {
         resultado = await criarProduto(input)
