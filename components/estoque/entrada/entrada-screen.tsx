@@ -3,10 +3,12 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react"
+import { createPortal } from "react-dom"
 import {
   ArrowLeft,
   Plus,
@@ -1319,10 +1321,45 @@ function LinhaItem({
   onKeyDown: (e: React.KeyboardEvent, campo: "quantidade" | "custo") => void
   produtos: Produto[]
 }) {
+  const seletorRef = useRef<HTMLDivElement>(null)
+  const [menuPos, setMenuPos] = useState<{
+    top: number
+    left: number
+    width: number
+  } | null>(null)
+
   const resultados = useMemo(
     () => (linha.seletorAberto ? buscarProdutos(linha.busca, produtos) : []),
     [linha.seletorAberto, linha.busca, produtos]
   )
+
+  const menuAberto = linha.seletorAberto && resultados.length > 0
+
+  useLayoutEffect(() => {
+    if (!menuAberto) {
+      setMenuPos(null)
+      return
+    }
+
+    function updatePos() {
+      const el = seletorRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      setMenuPos({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: Math.max(rect.width, 256),
+      })
+    }
+
+    updatePos()
+    window.addEventListener("scroll", updatePos, true)
+    window.addEventListener("resize", updatePos)
+    return () => {
+      window.removeEventListener("scroll", updatePos, true)
+      window.removeEventListener("resize", updatePos)
+    }
+  }, [menuAberto, linha.busca, resultados.length])
 
   const sub = subtotal(linha)
 
@@ -1334,7 +1371,7 @@ function LinhaItem({
       )}
     >
       {/* Seletor de produto */}
-      <div className="relative pr-2" data-produto-seletor="">
+      <div className="relative pr-2" ref={seletorRef} data-produto-seletor="">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
           <input
@@ -1353,36 +1390,49 @@ function LinhaItem({
             className="h-8 w-full rounded border border-input bg-background pl-8 pr-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/40"
           />
         </div>
-        {linha.seletorAberto && resultados.length > 0 && (
-          <div
-            className="absolute left-0 top-full mt-1 z-20 w-full min-w-64 rounded-lg border border-border bg-card shadow-lg max-h-52 overflow-y-auto p-1"
-            data-produto-seletor=""
-          >
-            {resultados.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onMouseDown={(e) => { e.preventDefault(); onSelecionar(p) }}
-                className="w-full text-left flex items-start gap-2.5 px-3 py-2 rounded text-sm hover:bg-muted"
-              >
-                <span className="flex flex-col min-w-0">
-                  <span className="font-medium text-foreground truncate">
-                    {p.nome}
-                    {p.status === "inativo" && (
-                      <span className="ml-1.5 text-xs text-muted-foreground font-normal">(inativo)</span>
-                    )}
+        {menuAberto &&
+          menuPos &&
+          createPortal(
+            <div
+              className="fixed z-50 min-w-64 rounded-lg border border-border bg-card shadow-lg max-h-52 overflow-y-auto p-1"
+              style={{
+                top: menuPos.top,
+                left: menuPos.left,
+                width: menuPos.width,
+              }}
+              data-produto-seletor=""
+            >
+              {resultados.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    onSelecionar(p)
+                  }}
+                  className="w-full text-left flex items-start gap-2.5 px-3 py-2 rounded text-sm hover:bg-muted"
+                >
+                  <span className="flex flex-col min-w-0">
+                    <span className="font-medium text-foreground truncate">
+                      {p.nome}
+                      {p.status === "inativo" && (
+                        <span className="ml-1.5 text-xs text-muted-foreground font-normal">
+                          (inativo)
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                      {p.skuInterno}
+                    </span>
                   </span>
-                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                    {p.skuInterno}
+                  <span className="ml-auto shrink-0 text-xs text-muted-foreground font-mono tabular-nums">
+                    {p.unidadeMedida}
                   </span>
-                </span>
-                <span className="ml-auto shrink-0 text-xs text-muted-foreground font-mono tabular-nums">
-                  {p.unidadeMedida}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
+                </button>
+              ))}
+            </div>,
+            document.body
+          )}
       </div>
 
       {/* SKU */}
