@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Menu } from "@base-ui/react/menu"
 import { Tooltip } from "@base-ui/react/tooltip"
+import { Dialog } from "@base-ui/react/dialog"
 import {
   Search,
   ChevronDown,
@@ -11,14 +12,16 @@ import {
   Clock,
   ArrowRight,
   Package,
+  X,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { Produto } from "@/types/domain"
 import { CATEGORIAS } from "@/lib/inventario-utils"
-import { actionCarregarInventarios } from "@/lib/actions/estoque"
+import { actionCarregarInventarios, actionSugerirContagemInventario } from "@/lib/actions/estoque"
 import { ProdutoDrawer, type SaveResult } from "@/components/produtos/produto-drawer"
 import { InventarioStatusBadge } from "./inventario-status-badge"
+import { useCurrentUser } from "@/lib/auth-context"
 
 type FiltroEstoque = "todos" | "baixo" | "zerado"
 
@@ -30,6 +33,9 @@ export function EstoqueScreen({
   onProductSelect?: (produtoId: string) => void
 }) {
   const router = useRouter()
+  const currentUser = useCurrentUser()
+  const isOperadorEstoque = currentUser.role === "OPERADOR" && currentUser.funcao === "ESTOQUE"
+  
   const [inventarios, setInventarios] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState("")
@@ -41,6 +47,13 @@ export function EstoqueScreen({
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [produtoEmVisao, setProdutoEmVisao] = useState<Produto | null>(null)
+  
+  // Modal de sugestão de contagem
+  const [sugestaoModalOpen, setSugestaoModalOpen] = useState(false)
+  const [sugestaoProduto, setSugestaoProduto] = useState<(typeof inventarios)[0] | null>(null)
+  const [sugestaoMotivo, setSugestaoMotivo] = useState("")
+  const [sugestaoEnviando, setSugestaoEnviando] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -142,6 +155,34 @@ export function EstoqueScreen({
     const placeholder = `/estoque/inventario?produtoId=${inv.produto.id}`
     console.log("[v0] Inventário placeholder:", placeholder)
   }, [])
+
+  const handleSugerirContagem = useCallback((inv: (typeof inventarios)[0]) => {
+    setSugestaoProduto(inv)
+    setSugestaoMotivo("")
+    setSugestaoModalOpen(true)
+  }, [])
+
+  const handleEnviarSugestao = useCallback(async () => {
+    if (!sugestaoProduto || !sugestaoMotivo.trim()) return
+    
+    setSugestaoEnviando(true)
+    const resultado = await actionSugerirContagemInventario({
+      produtoId: sugestaoProduto.produtoId,
+      motivo: sugestaoMotivo.trim(),
+    })
+    setSugestaoEnviando(false)
+    
+    if (resultado.ok) {
+      setSugestaoModalOpen(false)
+      setSugestaoProduto(null)
+      setSugestaoMotivo("")
+      setToast("Sugestão registrada — um Supervisor vai avaliar")
+      setTimeout(() => setToast(null), 3000)
+    } else {
+      setToast(resultado.error || "Erro ao registrar sugestão")
+      setTimeout(() => setToast(null), 3000)
+    }
+  }, [sugestaoProduto, sugestaoMotivo])
 
   if (loading) {
     return (
@@ -464,6 +505,15 @@ export function EstoqueScreen({
                                 <Package className="w-4 h-4" />
                                 Ir para Inventário
                               </Menu.Item>
+                              {isOperadorEstoque && (
+                                <Menu.Item
+                                  onClick={() => handleSugerirContagem(inv)}
+                                  className="px-3 py-2 text-sm rounded cursor-pointer hover:bg-muted flex items-center gap-2 text-primary"
+                                >
+                                  <Clock className="w-4 h-4" />
+                                  Sugerir contagem
+                                </Menu.Item>
+                              )}
                             </Menu.Popup>
                           </Menu.Positioner>
                         </Menu.Portal>
@@ -495,6 +545,66 @@ export function EstoqueScreen({
         onSave={async () => ({ ok: true })}
         readonly={true}
       />
+
+      {/* Modal de sugestão de contagem */}
+      <Dialog.Root open={sugestaoModalOpen} onOpenChange={setSugestaoModalOpen}>
+        <Dialog.Portal>
+          <Dialog.Backdrop className="fixed inset-0 bg-black/40" />
+          <Dialog.Popup className="fixed inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-border bg-background p-6 shadow-lg outline-none">
+            <Dialog.Title className="text-lg font-semibold">
+              Sugerir contagem de inventário
+            </Dialog.Title>
+            
+            {sugestaoProduto && (
+              <div className="mt-4 space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Produto</p>
+                  <p className="font-medium text-foreground">{sugestaoProduto.produto.nome}</p>
+                  <p className="text-xs text-muted-foreground">SKU: {sugestaoProduto.produto.skuInterno}</p>
+                </div>
+                
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-foreground">
+                    Motivo <span className="text-destructive">*</span>
+                  </label>
+                  <textarea
+                    value={sugestaoMotivo}
+                    onChange={(e) => setSugestaoMotivo(e.target.value)}
+                    placeholder="Descreva o motivo da sugestão de contagem..."
+                    rows={3}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 resize-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSugestaoModalOpen(false)}
+                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleEnviarSugestao}
+                disabled={!sugestaoMotivo.trim() || sugestaoEnviando}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sugestaoEnviando ? "Enviando..." : "Enviar sugestão"}
+              </button>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-4 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-2 rounded-lg border border-border bg-popover px-3.5 py-2.5 text-sm font-medium text-popover-foreground shadow-lg">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }

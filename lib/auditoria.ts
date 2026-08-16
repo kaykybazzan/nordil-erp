@@ -9,6 +9,7 @@ import { tenantDb } from "./tenant-db"
  * @param params.modulo - Módulo do sistema (ex: PEDIDOS, CLIENTES)
  * @param params.acao - Ação realizada (ex: CRIADO, ATUALIZADO)
  * @param params.entidadeId - ID da entidade afetada
+ * @param params.entidadeDescricao - Nome legível da entidade afetada (snapshot)
  * @param params.descricao - Descrição do evento
  * @param params.usuarioId - ID do usuário que realizou a ação
  * @param params.usuarioNome - Nome do usuário que realizou a ação
@@ -20,6 +21,7 @@ export async function registrarAuditoria(params: {
   modulo: ModuloAuditoria
   acao: AcaoAuditoria
   entidadeId: string
+  entidadeDescricao?: string
   descricao: string
   usuarioId: string
   usuarioNome: string
@@ -38,6 +40,7 @@ export async function registrarAuditoria(params: {
       modulo: params.modulo,
       acao: params.acao,
       entidadeId: params.entidadeId,
+      entidadeDescricao: params.entidadeDescricao,
       descricao: params.descricao,
       usuarioId: params.usuarioId,
       usuarioNome: params.usuarioNome,

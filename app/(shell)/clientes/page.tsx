@@ -74,7 +74,7 @@ export default function ClientesPage() {
     )
   }
 
-  async function handleSalvarCliente(cliente: Cliente): Promise<SaveResult> {
+  async function handleSalvarCliente(cliente: Omit<Cliente, "id"> & { id?: string }): Promise<SaveResult> {
     const resultado = cliente.id
       ? await atualizarCliente(cliente.id, cliente)
       : await criarCliente(cliente)

@@ -78,7 +78,10 @@ export async function criarCliente(input: ClienteInput) {
 
   const dados = validated.data
 
-  if (!isDocumentoValido(dados.documento)) {
+  // Remove id if present (shouldn't be for creation)
+  const { id, ...dadosSemId } = dados as any
+
+  if (!isDocumentoValido(dadosSemId.documento)) {
     return { ok: false, error: "Documento em formato inválido" }
   }
 
@@ -86,11 +89,11 @@ export async function criarCliente(input: ClienteInput) {
     const cliente = await prisma.cliente.create({
       data: {
         empresaId: session.user.empresaId,
-        nome: dados.nome,
-        documento: dados.documento,
-        status: dados.status,
+        nome: dadosSemId.nome,
+        documento: dadosSemId.documento,
+        status: dadosSemId.status,
         enderecos: {
-          create: dados.enderecos.map((e: any) => ({
+          create: dadosSemId.enderecos.map((e: any) => ({
             logradouro: e.logradouro,
             numero: e.numero,
             bairro: e.bairro,
@@ -108,6 +111,7 @@ export async function criarCliente(input: ClienteInput) {
       modulo: "CLIENTES",
       acao: "CRIADO",
       entidadeId: cliente.id,
+      entidadeDescricao: `Cliente: ${cliente.nome}`,
       descricao: `Cliente ${cliente.nome} criado.`,
     })
 
@@ -209,6 +213,7 @@ export async function atualizarCliente(id: string, input: ClienteInput) {
       modulo: "CLIENTES",
       acao: "ATUALIZADO",
       entidadeId: cliente.id,
+      entidadeDescricao: `Cliente: ${cliente.nome}`,
       descricao: `Cliente ${cliente.nome} atualizado.`,
       camposAlterados,
     })
@@ -267,6 +272,7 @@ export async function inativarCliente(id: string) {
       modulo: "CLIENTES",
       acao: "STATUS_ALTERADO",
       entidadeId: cliente.id,
+      entidadeDescricao: `Cliente: ${cliente.nome}`,
       descricao: `Cliente ${cliente.nome} inativado.`,
     })
 
@@ -302,6 +308,7 @@ export async function reativarCliente(id: string) {
       modulo: "CLIENTES",
       acao: "STATUS_ALTERADO",
       entidadeId: cliente.id,
+      entidadeDescricao: `Cliente: ${cliente.nome}`,
       descricao: `Cliente ${cliente.nome} reativado.`,
     })
 

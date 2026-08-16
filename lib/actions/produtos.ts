@@ -13,8 +13,8 @@ const ProdutoInputSchema = z.object({
   marca: z.string().min(1, "Marca é obrigatória"),
   unidadeMedida: z.enum(["UN", "M", "KG", "CX"]),
   permiteFracionado: z.boolean(),
-  custo: z.number().positive("Custo deve ser maior que zero"),
-  precoVenda: z.number().positive("Preço de venda deve ser maior que zero"),
+  custo: z.number().nonnegative().optional(), // Optional for non-ADMIN
+  precoVenda: z.number().nonnegative().optional(), // Optional for non-ADMIN
   status: z.enum(["ativo", "inativo"]),
   corredor: z.string().optional(),
   categoria: z.string().optional(),
@@ -78,6 +78,11 @@ export async function criarProduto(input: ProdutoInput) {
 
   const dados = validated.data
 
+  // Force financial fields to 0 for non-ADMIN users
+  const isAdmin = session.user.role === "ADMIN"
+  const custoFinal = isAdmin ? (dados.custo ?? 0) : 0
+  const precoVendaFinal = isAdmin ? (dados.precoVenda ?? 0) : 0
+
   try {
     const produto = await prisma.produto.create({
       data: {
@@ -89,8 +94,8 @@ export async function criarProduto(input: ProdutoInput) {
         marca: dados.marca,
         unidadeMedida: dados.unidadeMedida,
         permiteFracionado: dados.permiteFracionado,
-        custo: dados.custo,
-        precoVenda: dados.precoVenda,
+        custo: custoFinal,
+        precoVenda: precoVendaFinal,
         status: dados.status,
         corredor: dados.corredor,
         categoria: dados.categoria,
@@ -104,6 +109,7 @@ export async function criarProduto(input: ProdutoInput) {
       modulo: "PRODUTOS",
       acao: "CRIADO",
       entidadeId: produto.id,
+      entidadeDescricao: `Produto: ${produto.nome} (${produto.skuInterno})`,
       descricao: `Produto ${produto.nome} (${produto.skuInterno}) criado.`,
     })
 
@@ -165,6 +171,11 @@ export async function atualizarProduto(id: string, input: ProdutoInput) {
       return { ok: false, error: "Não autorizado" }
     }
 
+    // Force financial fields to 0 for non-ADMIN users, or preserve existing values
+    const isAdmin = session.user.role === "ADMIN"
+    const custoFinal = isAdmin ? (dados.custo ?? produtoAntigo.custo) : produtoAntigo.custo
+    const precoVendaFinal = isAdmin ? (dados.precoVenda ?? produtoAntigo.precoVenda) : produtoAntigo.precoVenda
+
     const produto = await prisma.produto.update({
       where: { id },
       data: {
@@ -175,8 +186,8 @@ export async function atualizarProduto(id: string, input: ProdutoInput) {
         marca: dados.marca,
         unidadeMedida: dados.unidadeMedida,
         permiteFracionado: dados.permiteFracionado,
-        custo: dados.custo,
-        precoVenda: dados.precoVenda,
+        custo: custoFinal,
+        precoVenda: precoVendaFinal,
         status: dados.status,
         corredor: dados.corredor,
         categoria: dados.categoria,
@@ -205,6 +216,7 @@ export async function atualizarProduto(id: string, input: ProdutoInput) {
       modulo: "PRODUTOS",
       acao: "ATUALIZADO",
       entidadeId: produto.id,
+      entidadeDescricao: `Produto: ${produto.nome} (${produto.skuInterno})`,
       descricao: `Produto ${produto.nome} (${produto.skuInterno}) atualizado.`,
       camposAlterados,
     })
@@ -266,6 +278,7 @@ export async function inativarProduto(id: string) {
       modulo: "PRODUTOS",
       acao: "STATUS_ALTERADO",
       entidadeId: produto.id,
+      entidadeDescricao: `Produto: ${produto.nome} (${produto.skuInterno})`,
       descricao: `Produto ${produto.nome} (${produto.skuInterno}) inativado.`,
     })
 
@@ -323,6 +336,7 @@ export async function reativarProduto(id: string) {
       modulo: "PRODUTOS",
       acao: "STATUS_ALTERADO",
       entidadeId: produto.id,
+      entidadeDescricao: `Produto: ${produto.nome} (${produto.skuInterno})`,
       descricao: `Produto ${produto.nome} (${produto.skuInterno}) reativado.`,
     })
 

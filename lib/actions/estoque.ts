@@ -5,6 +5,8 @@ import { aplicarMovimentacao, obterMovimentacoes } from "@/lib/estoque-ledger"
 import { carregarInventarios } from "@/lib/inventario-server"
 import { calcularIndicadoresEstoque } from "@/lib/relatorios-estoque"
 import { calcularIndicadoresMovimentacoes } from "@/lib/relatorios-movimentacoes"
+import { prisma } from "@/lib/db"
+import { actionRegistrarAuditoria } from "@/lib/actions/auditoria"
 import { z } from "zod"
 
 const aplicarMovimentacaoSchema = z.object({
@@ -119,5 +121,56 @@ export async function actionCalcularIndicadoresMovimentacoes(input: {
   } catch (error) {
     console.error("Erro ao calcular indicadores de movimentações:", error)
     return { ok: false, error: "Erro ao calcular indicadores de movimentações." }
+  }
+}
+
+const sugerirContagemSchema = z.object({
+  produtoId: z.string().uuid(),
+  motivo: z.string().min(1, "Motivo é obrigatório"),
+})
+
+export async function actionSugerirContagemInventario(input: {
+  produtoId: string
+  motivo: string
+}) {
+  const session = await auth()
+  if (!session?.user?.empresaId) {
+    return { ok: false, error: "Não autenticado" }
+  }
+
+  const validated = sugerirContagemSchema.safeParse(input)
+  if (!validated.success) {
+    return { ok: false, error: validated.error.issues[0].message }
+  }
+
+  const dados = validated.data
+
+  try {
+    // Verifica se o produto existe e pertence à empresa
+    const produto = await prisma.produto.findUnique({
+      where: { id: dados.produtoId },
+    })
+
+    if (!produto) {
+      return { ok: false, error: "Produto não encontrado" }
+    }
+
+    if (produto.empresaId !== session.user.empresaId) {
+      return { ok: false, error: "Não autorizado" }
+    }
+
+    // Registra na auditoria como SUGESTAO_CONTAGEM
+    await actionRegistrarAuditoria({
+      modulo: "INVENTARIO",
+      acao: "SUGESTAO_CONTAGEM",
+      entidadeId: dados.produtoId,
+      entidadeDescricao: `Produto: ${produto.nome} (${produto.skuInterno})`,
+      descricao: `Sugestão de contagem para produto ${produto.nome} (${produto.skuInterno}). Motivo: ${dados.motivo}`,
+    })
+
+    return { ok: true }
+  } catch (error) {
+    console.error("Erro ao sugerir contagem:", error)
+    return { ok: false, error: "Erro ao registrar sugestão" }
   }
 }

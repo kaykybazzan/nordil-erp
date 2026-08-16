@@ -239,6 +239,7 @@ export async function actionAbrirInventario(input: AbrirInventarioInput) {
       modulo: "INVENTARIO",
       acao: "CRIADO",
       entidadeId: inventario.id,
+      entidadeDescricao: `Inventário: ${descricaoEscopo}`,
       descricao: `Inventário iniciado: ${descricaoEscopo}. Responsável: ${input.responsavelContagemId}.`,
     })
 
@@ -437,6 +438,7 @@ export async function actionAplicarAjusteInventario(input: ItemInventarioInput) 
       modulo: "INVENTARIO",
       acao: "ATUALIZADO",
       entidadeId: inventario.id,
+      entidadeDescricao: `Inventário: ${inventario.descricaoEscopo}`,
       descricao: `Ajuste aplicado: ${produto?.nome ?? item.produtoId}. Diferença: ${diferenca > 0 ? "+" : ""}${diferenca}.`,
     })
 
@@ -539,6 +541,7 @@ export async function actionReatribuirResponsavelInventario(input: ReatribuirRes
       modulo: "INVENTARIO",
       acao: "ATUALIZADO",
       entidadeId: inventario.id,
+      entidadeDescricao: `Inventário: ${inventario.descricaoEscopo}`,
       descricao: `Responsável da contagem alterado: ${responsavelAnteriorId} → ${input.novoResponsavelId}.`,
     })
 
@@ -602,6 +605,7 @@ export async function actionFinalizarInventario(input: FinalizarInventarioInput)
       modulo: "INVENTARIO",
       acao: "STATUS_ALTERADO",
       entidadeId: inventario.id,
+      entidadeDescricao: `Inventário: ${inventario.descricaoEscopo}`,
       descricao: `Inventário finalizado${finalizadoComPendencias ? " com pendências (itens necessitam recontagem)" : ""}.`,
     })
 

@@ -70,6 +70,7 @@ model Auditoria {
   modulo          String    // varchar de propósito
   acao            String    // varchar de propósito
   entidadeId      String
+  entidadeDescricao String?  // nome legível da entidade afetada (snapshot)
   descricao       String
   usuarioId       String    @db.Uuid
   usuarioNome     String

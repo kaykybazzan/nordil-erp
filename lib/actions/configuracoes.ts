@@ -150,6 +150,7 @@ export async function actionAtualizarRegrasOperacionais(
         modulo: "CONFIGURACOES",
         acao: "ATUALIZADO",
         entidadeId: session.user.empresaId,
+        entidadeDescricao: "Configurações: Regras Operacionais",
         descricao: "Regras operacionais atualizadas.",
         camposAlterados,
       })
@@ -210,6 +211,7 @@ export async function actionAtualizarDadosEmpresa(
         modulo: "CONFIGURACOES",
         acao: "ATUALIZADO",
         entidadeId: session.user.empresaId,
+        entidadeDescricao: "Configurações: Dados da Empresa",
         descricao: "Dados da empresa atualizados.",
         camposAlterados,
       })
@@ -264,6 +266,7 @@ export async function actionAtualizarDeposito(
         modulo: "CONFIGURACOES",
         acao: "ATUALIZADO",
         entidadeId: session.user.empresaId,
+        entidadeDescricao: "Configurações: Depósito",
         descricao: "Dados do depósito atualizados.",
         camposAlterados,
       })
@@ -308,6 +311,7 @@ export async function actionAtualizarSeguranca(
         modulo: "CONFIGURACOES",
         acao: "ATUALIZADO",
         entidadeId: session.user.empresaId,
+        entidadeDescricao: "Configurações: Segurança",
         descricao: "Configurações de segurança atualizadas.",
         camposAlterados,
       })

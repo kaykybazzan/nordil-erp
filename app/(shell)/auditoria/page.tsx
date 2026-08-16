@@ -17,6 +17,7 @@ type RegistroAuditoriaReal = {
   modulo: string
   acao: string
   entidadeId: string
+  entidadeDescricao?: string | null
   descricao: string
   motivo?: string | null
   camposAlterados?: unknown // Prisma retorna JsonValue, que é mais amplo
@@ -173,7 +174,8 @@ export default function AuditoriaPage() {
       result = result.filter(
         (r: RegistroAuditoriaReal) =>
           r.descricao.toLowerCase().includes(q) ||
-          r.entidadeId.toLowerCase().includes(q)
+          r.entidadeId.toLowerCase().includes(q) ||
+          r.entidadeDescricao?.toLowerCase().includes(q)
       )
     }
 
@@ -428,7 +430,7 @@ export default function AuditoriaPage() {
                         )}
                       </Td>
                       <Td className="font-mono text-xs text-muted-foreground">
-                        {registro.entidadeId}
+                        {registro.entidadeDescricao ?? registro.entidadeId}
                       </Td>
                       <Td>
                         <span title="Ver detalhes completos deste registro">

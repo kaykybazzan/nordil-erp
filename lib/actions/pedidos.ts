@@ -451,6 +451,7 @@ export async function actionCancelarPedido(pedidoId: string, motivo: string) {
       modulo: "PEDIDOS",
       acao: "CANCELADO",
       entidadeId: pedidoId,
+      entidadeDescricao: `Pedido #${pedido.numero}`,
       descricao: `Pedido #${pedido.numero} cancelado.`,
       motivo: motivo.trim(),
     })

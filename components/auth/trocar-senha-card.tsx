@@ -7,6 +7,9 @@ import Image from "next/image"
 import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { actionObterConfiguracoes } from "@/lib/actions/configuracoes"
+import { validarSenha, obterDescricaoPoliticaSenha } from "@/lib/senha-utils"
+import type { PoliticaSenhaMinima } from "@/types/domain"
 
 interface TrocarSenhaCardProps {
   onSubmit: (novaSenha: string) => void | Promise<void>
@@ -14,8 +17,6 @@ interface TrocarSenhaCardProps {
   erro?: string | null
   companyName?: string
 }
-
-const MIN_LENGTH = 8
 
 export function TrocarSenhaCard({
   onSubmit,
@@ -29,11 +30,23 @@ export function TrocarSenhaCard({
   const [showConfirmarSenha, setShowConfirmarSenha] = useState(false)
   const [capsOn, setCapsOn] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [politicaSenha, setPoliticaSenha] = useState<PoliticaSenhaMinima>("MEDIA")
+  const [carregandoConfig, setCarregandoConfig] = useState(true)
 
   const novaSenhaRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     novaSenhaRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    // Carregar configurações da empresa para obter a política de senha
+    actionObterConfiguracoes().then((result) => {
+      if (result.ok && result.data) {
+        setPoliticaSenha(result.data.seguranca.politicaSenhaMinima)
+      }
+      setCarregandoConfig(false)
+    })
   }, [])
 
   // Erro do servidor tem prioridade só se não houver erro de validação local pendente
@@ -47,12 +60,15 @@ export function TrocarSenhaCard({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (isLoading) return
+    if (isLoading || carregandoConfig) return
 
-    if (novaSenha.length < MIN_LENGTH) {
-      setValidationError(`A senha deve ter pelo menos ${MIN_LENGTH} caracteres.`)
+    // Validar senha de acordo com a política configurada
+    const validacao = validarSenha(novaSenha, politicaSenha)
+    if (!validacao.valido) {
+      setValidationError(validacao.erro || "Senha inválida.")
       return
     }
+
     if (novaSenha !== confirmarSenha) {
       setValidationError("As senhas não coincidem.")
       return
@@ -89,6 +105,11 @@ export function TrocarSenhaCard({
           <p className="mt-2 max-w-[300px] text-sm text-muted-foreground">
             Por segurança, você precisa trocar sua senha no primeiro acesso.
           </p>
+          {!carregandoConfig && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Requisitos: {obterDescricaoPoliticaSenha(politicaSenha)}
+            </p>
+          )}
         </div>
 
         <form className="mt-7 flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
@@ -205,7 +226,7 @@ export function TrocarSenhaCard({
 
           <Button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || carregandoConfig}
             className="group mt-1 h-12 w-full gap-2 bg-[#2563eb] text-base font-medium text-white transition-all hover:bg-[#1d4ed8]"
           >
             {isLoading ? (

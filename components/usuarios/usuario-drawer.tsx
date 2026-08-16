@@ -68,6 +68,16 @@ export function UsuarioDrawer({ usuario, open, onOpenChange, onSave }: UsuarioDr
     }
   }, [open, usuario])
 
+  // Lock funcao to ADMINISTRATIVO when role is ADMIN or SUPERVISOR
+  useEffect(() => {
+    if (form.role === "ADMIN" || form.role === "SUPERVISOR") {
+      setForm((f) => ({ ...f, funcao: "ADMINISTRATIVO" as FuncaoUsuario }))
+    } else if (form.role === "OPERADOR" && form.funcao === "ADMINISTRATIVO") {
+      // Clear ADMINISTRATIVO when switching back to OPERADOR to avoid accidental inheritance
+      setForm((f) => ({ ...f, funcao: "VENDAS" as FuncaoUsuario }))
+    }
+  }, [form.role])
+
   async function handleSubmit() {
     setErro(null)
 
@@ -159,7 +169,8 @@ export function UsuarioDrawer({ usuario, open, onOpenChange, onSave }: UsuarioDr
               <select
                 value={form.funcao}
                 onChange={(e) => setForm((f) => ({ ...f, funcao: e.target.value as FuncaoUsuario }))}
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                disabled={form.role === "ADMIN" || form.role === "SUPERVISOR"}
+                className="h-9 rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {FUNCAO_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -167,6 +178,11 @@ export function UsuarioDrawer({ usuario, open, onOpenChange, onSave }: UsuarioDr
                   </option>
                 ))}
               </select>
+              {(form.role === "ADMIN" || form.role === "SUPERVISOR") && (
+                <p className="text-xs text-muted-foreground">
+                  Função travada em Administrativo para roles de permissão
+                </p>
+              )}
             </label>
 
             {isEdicao && (

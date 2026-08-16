@@ -119,8 +119,8 @@ export function ClientesScreen() {
   }
 
   const salvarCliente = useCallback(
-    async (payload: Cliente): Promise<SaveResult> => {
-      const resultado = payload.id
+    async (payload: Omit<Cliente, "id"> & { id?: string }): Promise<SaveResult> => {
+      const resultado = payload.id && editando?.id === payload.id
         ? await atualizarCliente(payload.id, payload)
         : await criarCliente(payload)
 
@@ -131,7 +131,7 @@ export function ClientesScreen() {
         return { ok: false, error: resultado.error }
       }
     },
-    [criarCliente, atualizarCliente],
+    [criarCliente, atualizarCliente, editando],
   )
 
   return (

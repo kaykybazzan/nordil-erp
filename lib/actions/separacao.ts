@@ -152,6 +152,7 @@ export async function actionIniciarSeparacao(input: { pedidoId: string }) {
       modulo: "PEDIDOS",
       acao: "ATUALIZADO",
       entidadeId: input.pedidoId,
+      entidadeDescricao: `Pedido #${pedido.numero}`,
       descricao: `Separação iniciada por ${session.user.name || session.user.email}.`,
     })
 
@@ -340,6 +341,7 @@ export async function actionFinalizarSeparacao(input: {
       modulo: "PEDIDOS",
       acao: "ATUALIZADO",
       entidadeId: input.pedidoId,
+      entidadeDescricao: `Pedido #${pedido.numero}`,
       descricao: temRuptura
         ? `Ruptura de estoque detectada em ${itensComRuptura.length} item(ns). Separação concluída por ${session.user.name || session.user.email}.`
         : `Separação concluída por ${session.user.name || session.user.email}.`,
@@ -399,6 +401,7 @@ export async function actionForcarLiberacaoLock(input: { pedidoId: string }) {
       modulo: "PEDIDOS",
       acao: "ATUALIZADO",
       entidadeId: input.pedidoId,
+      entidadeDescricao: `Pedido #${pedido.numero}`,
       descricao: `Lock de separação forçadamente liberado por ${session.user.name || session.user.email}.`,
     })
 

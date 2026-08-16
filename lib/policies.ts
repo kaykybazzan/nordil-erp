@@ -72,6 +72,20 @@ export function podeGerenciarDevolucao(usuario: Usuario): boolean {
   return usuario.role === "ADMIN" || usuario.role === "SUPERVISOR"
 }
 
+// ─── Produtos
+
+/**
+ * Verifica se um usuário tem permissão para criar/editar produtos.
+ * ADMIN sempre pode.
+ * OPERADOR com função ESTOQUE também pode (para cadastro durante recebimento de NF).
+ */
+export function podeGerenciarProdutos(usuario: Usuario): boolean {
+  return (
+    usuario.role === "ADMIN" ||
+    (usuario.role === "OPERADOR" && usuario.funcao === "ESTOQUE")
+  )
+}
+
 // ─── Inventário Contagem
 
 /**

@@ -206,6 +206,7 @@ if (!podeOperarConferencia({ conferenteId: pedido.conferenteId }, session.user))
       modulo: "PEDIDOS",
       acao: "ATUALIZADO",
       entidadeId: input.pedidoId,
+      entidadeDescricao: `Pedido #${pedido.numero}`,
       descricao: `Conferência iniciada por ${session.user.name || session.user.email}.`,
     })
 
@@ -356,10 +357,16 @@ export async function actionFinalizarConferencia(input: { conferenciaId: string 
       })
     })
 
+    const pedido = await prisma.pedido.findUnique({
+      where: { id: conferencia.pedidoId },
+      select: { numero: true },
+    })
+
     await actionRegistrarAuditoria({
       modulo: "PEDIDOS",
       acao: "ATUALIZADO",
       entidadeId: conferencia.pedidoId,
+      entidadeDescricao: `Pedido #${pedido?.numero}`,
       descricao: temDivergencia
         ? `Conferência concluída com divergência em ${itensComDivergencia.length} item(ns) por ${session.user.name || session.user.email}.`
         : `Conferência concluída por ${session.user.name || session.user.email}.`,

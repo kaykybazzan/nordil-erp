@@ -288,6 +288,7 @@ export async function actionCriarEntrada(input: CriarEntradaInput) {
       modulo: "INVENTARIO",
       acao: "CRIADO",
       entidadeId: resultado.id,
+      entidadeDescricao: `Entrada de estoque: NF ${input.numeroNF}`,
       descricao: `Entrada de estoque criada: NF ${input.numeroNF} com ${input.itens.length} itens`,
     })
 

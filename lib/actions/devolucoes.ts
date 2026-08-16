@@ -112,6 +112,8 @@ export async function actionSolicitarDevolucao(input: {
       return { ok: false, error: "Pedido não encontrado." }
     }
 
+    const pedidoNumero = pedido.numero
+
     // Validação: verificar se cada itemPedidoId pertence ao pedido
     for (const item of itens) {
       const itemPedido = pedido.itens.find((i) => i.id === item.itemPedidoId)
@@ -175,6 +177,7 @@ export async function actionSolicitarDevolucao(input: {
       modulo: "DEVOLUCOES",
       acao: "CRIADO",
       entidadeId: devolucao.id,
+      entidadeDescricao: `Devolução do Pedido #${pedidoNumero}`,
       descricao: `Devolução solicitada para pedido ${pedidoId}.`,
     })
 
@@ -341,10 +344,15 @@ export async function actionConfirmarDevolucao(
     })
 
     // Registrar auditoria
+    const pedido = await prisma.pedido.findUnique({
+      where: { id: devolucao.pedidoId },
+      select: { numero: true },
+    })
     const auditResult = await actionRegistrarAuditoria({
       modulo: "DEVOLUCOES",
       acao: "STATUS_ALTERADO",
       entidadeId: devolucaoId,
+      entidadeDescricao: `Devolução do Pedido #${pedido?.numero}`,
       descricao: `Devolução confirmada e concluída para pedido ${devolucao.pedidoId}.`,
     })
 
@@ -397,10 +405,15 @@ export async function actionCancelarDevolucao(devolucaoId: string): Promise<Resu
     })
 
     // Registrar auditoria
+    const pedido = await prisma.pedido.findUnique({
+      where: { id: devolucao.pedidoId },
+      select: { numero: true },
+    })
     const auditResult = await actionRegistrarAuditoria({
       modulo: "DEVOLUCOES",
       acao: "CANCELADO",
       entidadeId: devolucaoId,
+      entidadeDescricao: `Devolução do Pedido #${pedido?.numero}`,
       descricao: `Devolução cancelada para pedido ${devolucao.pedidoId}.`,
     })
 

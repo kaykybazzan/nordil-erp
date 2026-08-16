@@ -49,6 +49,7 @@ export function ProdutoDrawer({
 
   const firstFieldRef = useRef<HTMLInputElement>(null)
   const currentUser = useCurrentUser()
+  const isAdmin = currentUser.role === "ADMIN"
 
   // Hidrata o formulário quando o drawer abre.
   useEffect(() => {
@@ -81,7 +82,9 @@ export function ProdutoDrawer({
   const custoInvalido = !Number.isFinite(custoNum) || custoNum <= 0
   const estoqueMinimoInvalido = !Number.isFinite(estoqueMinimoNum) || estoqueMinimoNum < 0
   const podeSalvar =
-  !nomeVazio && !marcaVazia && Boolean(unidade) && !precoInvalido && !custoInvalido && !estoqueMinimoInvalido && !saving
+    !nomeVazio && !marcaVazia && Boolean(unidade) && 
+    (isAdmin ? (!precoInvalido && !custoInvalido) : true) && 
+    !estoqueMinimoInvalido && !saving
 
   // Ao trocar a unidade, assume o padrão de fracionamento (sobrescrevível).
   function handleUnidadeChange(u: UnidadeMedida) {
@@ -117,8 +120,8 @@ export function ProdutoDrawer({
       marca: marca.trim(),
       unidadeMedida: unidade,
       permiteFracionado: fracionado,
-      custo: custoNum,
-      precoVenda: precoNum,
+      custo: isAdmin ? custoNum : 0,
+      precoVenda: isAdmin ? precoNum : 0,
       estoqueMinimo: estoqueMinimoNum,
       status,
       estoqueAtual: produto?.estoqueAtual ?? 0, // Backend ignora este campo
@@ -199,14 +202,14 @@ export function ProdutoDrawer({
                 onClick={handleToggleStatus}
                 disabled={readonly}
                 className={cn(
-                  "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
+                  "relative inline-flex h-5 w-9 min-w-[36px] shrink-0 items-center rounded-full outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/50",
                   status === "ativo" ? "bg-success" : "bg-muted-foreground/40",
                   readonly && "pointer-events-none opacity-50"
                 )}
               >
                 <span
                   className={cn(
-                    "inline-block size-4 rounded-full bg-card shadow-sm transition-transform",
+                    "inline-block size-4 rounded-full bg-card shadow-sm transition-transform duration-200",
                     status === "ativo" ? "translate-x-4" : "translate-x-0.5",
                   )}
                 />
@@ -320,7 +323,7 @@ export function ProdutoDrawer({
                   value={referencia}
                   onChange={(e) => setReferencia(e.target.value)}
                   placeholder="Opcional"
-                  disabled={readonly}
+                  disabled={readonly || !isAdmin}
                   className="h-9 w-full rounded-md border border-input bg-background px-3 font-mono text-sm text-foreground outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:bg-muted/50 disabled:text-muted-foreground disabled:cursor-not-allowed"
                 />
               </div>
@@ -339,7 +342,7 @@ export function ProdutoDrawer({
                     setCodigoBarras(e.target.value.replace(/\D/g, ""))
                   }
                   placeholder="Opcional"
-                  disabled={readonly}
+                  disabled={readonly || !isAdmin}
                   className="h-9 w-full rounded-md border border-input bg-background px-3 font-mono text-sm tabular-nums text-foreground outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:bg-muted/50 disabled:text-muted-foreground disabled:cursor-not-allowed"
                 />
               </div>
@@ -360,7 +363,7 @@ export function ProdutoDrawer({
                   onChange={(e) =>
                     handleUnidadeChange(e.target.value as UnidadeMedida)
                   }
-                  disabled={readonly}
+                  disabled={readonly || !isAdmin}
                   className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:bg-muted/50 disabled:text-muted-foreground disabled:cursor-not-allowed"
                 >
                   {UNIDADES.map((u) => (
@@ -389,16 +392,22 @@ export function ProdutoDrawer({
                       setPreco(e.target.value.replace(/[^\d.,]/g, ""))
                     }
                     placeholder="0,00"
-                    disabled={readonly}
+                    disabled={readonly || !isAdmin}
                     className={cn(
                       "h-9 w-full rounded-md border bg-background pr-3 pl-9 text-right font-mono text-sm tabular-nums text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40",
                       preco.length > 0 && precoInvalido
                         ? "border-destructive"
                         : "border-input focus-visible:border-ring",
-                      readonly && "bg-muted/50 text-muted-foreground cursor-not-allowed"
+                      readonly && "bg-muted/50 text-muted-foreground cursor-not-allowed",
+                      !isAdmin && "bg-muted/50 text-muted-foreground cursor-not-allowed"
                     )}
                   />
                 </div>
+                {!isAdmin && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Pendente de precificação — só o Admin pode definir
+                  </p>
+                )}
               </div>
             </div>
 
@@ -422,15 +431,21 @@ export function ProdutoDrawer({
                     setCusto(e.target.value.replace(/[^\d.,]/g, ""))
                   }
                   placeholder="0,00"
-                  disabled={readonly}
+                  disabled={readonly || !isAdmin}
                   className={cn(
                     "h-9 w-full rounded-md border bg-background pr-3 pl-9 text-right font-mono text-sm tabular-nums text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40",
                     custo.length > 0 && custoInvalido
                       ? "border-destructive"
                       : "border-input focus-visible:border-ring",
-                    readonly && "bg-muted/50 text-muted-foreground cursor-not-allowed"
+                    readonly && "bg-muted/50 text-muted-foreground cursor-not-allowed",
+                    !isAdmin && "bg-muted/50 text-muted-foreground cursor-not-allowed"
                   )}
                 />
+                {!isAdmin && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Pendente de precificação — só o Admin pode definir
+                  </p>
+                )}
               </div>
             </div>
 
@@ -481,14 +496,14 @@ export function ProdutoDrawer({
                 onClick={() => setFracionado((v) => !v)}
                 disabled={readonly}
                 className={cn(
-                  "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
+                  "relative inline-flex h-5 w-9 min-w-[36px] shrink-0 items-center rounded-full outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/50",
                   fracionado ? "bg-primary" : "bg-muted-foreground/40",
                   readonly && "pointer-events-none opacity-50"
                 )}
               >
                 <span
                   className={cn(
-                    "inline-block size-4 rounded-full bg-card shadow-sm transition-transform",
+                    "inline-block size-4 rounded-full bg-card shadow-sm transition-transform duration-200",
                     fracionado ? "translate-x-4" : "translate-x-0.5",
                   )}
                 />

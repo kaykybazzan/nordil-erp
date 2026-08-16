@@ -20,6 +20,8 @@ import { formatBRL } from "@/lib/utils/formatters"
 import { ProdutoStatusBadge } from "./produto-status-badge"
 import { ProdutoDrawer, type SaveResult } from "./produto-drawer"
 import { useProdutosStore } from "@/lib/produtos-store"
+import { useCurrentUser } from "@/lib/auth-context"
+import { podeGerenciarProdutos } from "@/lib/policies"
 
 type StatusFiltro = "todos" | "ativo" | "inativo"
 
@@ -33,6 +35,9 @@ const STATUS_LABEL: Record<StatusFiltro, string> = {
 
 export function ProdutosScreen() {
   const { produtos, loading, carregarProdutos, criarProduto, atualizarProduto } = useProdutosStore()
+  const currentUser = useCurrentUser()
+  const podeGerenciar = podeGerenciarProdutos(currentUser)
+  
   const [busca, setBusca] = useState("")
   const [buscaDebounced, setBuscaDebounced] = useState("")
   const [filtroStatus, setFiltroStatus] = useState<StatusFiltro>("todos")
@@ -243,18 +248,20 @@ export function ProdutosScreen() {
           </Menu.Portal>
         </Menu.Root>
 
-        <button
-          type="button"
-          onClick={abrirNovo}
-          className={cn(
-            "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary px-3.5 text-sm font-medium text-primary-foreground outline-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/50",
-            semProdutos &&
-              "ring-2 ring-primary/40 ring-offset-2 ring-offset-background",
-          )}
-        >
-          <Plus className="size-4" />
-          Novo produto
-        </button>
+        {podeGerenciar && (
+          <button
+            type="button"
+            onClick={abrirNovo}
+            className={cn(
+              "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary px-3.5 text-sm font-medium text-primary-foreground outline-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/50",
+              semProdutos &&
+                "ring-2 ring-primary/40 ring-offset-2 ring-offset-background",
+            )}
+          >
+            <Plus className="size-4" />
+            Novo produto
+          </button>
+        )}
       </div>
 
       {/* Tabela */}

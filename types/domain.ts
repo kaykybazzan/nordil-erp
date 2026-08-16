@@ -350,6 +350,7 @@ export const ACOES_AUDITORIA = [
   "LOGOUT",
   "STATUS_ALTERADO",
   "EXPORTADO",
+  "SUGESTAO_CONTAGEM",
 ] as const
 
 export type AcaoAuditoria = (typeof ACOES_AUDITORIA)[number]

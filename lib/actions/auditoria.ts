@@ -10,6 +10,7 @@ const registrarAuditoriaSchema = z.object({
   modulo: z.enum(MODULOS_AUDITORIA),
   acao: z.enum(ACOES_AUDITORIA),
   entidadeId: z.string().min(1),
+  entidadeDescricao: z.string().optional(),
   descricao: z.string().min(1),
   motivo: z.string().optional(),
   camposAlterados: z.array(
@@ -25,6 +26,7 @@ export async function actionRegistrarAuditoria(input: {
   modulo: ModuloAuditoria
   acao: AcaoAuditoria
   entidadeId: string
+  entidadeDescricao?: string
   descricao: string
   motivo?: string
   camposAlterados?: {

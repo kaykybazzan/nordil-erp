@@ -48,7 +48,7 @@ export function ClienteDrawer({
   open: boolean
   cliente: Cliente | null
   onOpenChange: (open: boolean) => void
-  onSave: (cliente: Cliente) => Promise<SaveResult>
+  onSave: (cliente: Omit<Cliente, "id"> & { id?: string }) => Promise<SaveResult>
 }) {
   const isEdit = Boolean(cliente)
   const currentUser = useCurrentUser()
@@ -180,8 +180,8 @@ export function ClienteDrawer({
     if (!podeSalvar) return
     setFormError(null)
     setSaving(true)
-    const payload: Cliente = {
-      id: cliente?.id ?? `cli-${Math.random().toString(36).slice(2, 9)}`,
+    const payload: Omit<Cliente, "id"> & { id?: string } = {
+      id: cliente?.id, // undefined para criação
       empresaId: cliente?.empresaId ?? currentUser.empresaId,
       nome: nome.trim(),
       documento: formatDocumento(documento),
@@ -264,13 +264,13 @@ export function ClienteDrawer({
                 }
                 onClick={handleToggleStatus}
                 className={cn(
-                  "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
+                  "relative inline-flex h-5 w-9 min-w-[36px] shrink-0 items-center rounded-full outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/50",
                   status === "ativo" ? "bg-success" : "bg-muted-foreground/40",
                 )}
               >
                 <span
                   className={cn(
-                    "inline-block size-4 rounded-full bg-card shadow-sm transition-transform",
+                    "inline-block size-4 rounded-full bg-card shadow-sm transition-transform duration-200",
                     status === "ativo" ? "translate-x-4" : "translate-x-0.5",
                   )}
                 />

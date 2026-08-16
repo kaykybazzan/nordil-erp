@@ -20,6 +20,12 @@ const criarUsuarioSchema = z.object({
   role: z.enum(ROLES),
   funcao: z.enum(FUNCOES),
   cargo: z.string().optional(),
+}).transform((data) => {
+  // Force funcao to ADMINISTRATIVO when role is not OPERADOR
+  if (data.role !== "OPERADOR") {
+    return { ...data, funcao: "ADMINISTRATIVO" as const }
+  }
+  return data
 })
 
 const atualizarUsuarioSchema = z.object({
@@ -29,6 +35,12 @@ const atualizarUsuarioSchema = z.object({
   role: z.enum(ROLES),
   funcao: z.enum(FUNCOES),
   cargo: z.string().optional(),
+}).transform((data) => {
+  // Force funcao to ADMINISTRATIVO when role is not OPERADOR
+  if (data.role !== "OPERADOR") {
+    return { ...data, funcao: "ADMINISTRATIVO" as const }
+  }
+  return data
 })
 
 // Nunca retorna senhaHash — formata explicitamente campo a campo
@@ -84,7 +96,7 @@ export async function actionCriarUsuario(
   }
 
   try {
-    const senhaTemporaria = gerarSenhaTemporaria()
+    const senhaTemporaria = await gerarSenhaTemporaria()
     const senhaHash = await bcrypt.hash(senhaTemporaria, 10)
 
     const novoUsuario = await prisma.usuario.create({
@@ -105,6 +117,7 @@ export async function actionCriarUsuario(
       modulo: "USUARIOS",
       acao: "CRIADO",
       entidadeId: novoUsuario.id,
+      entidadeDescricao: `Usuário: ${novoUsuario.nome}`,
       descricao: `Usuário criado: ${novoUsuario.nome} (${novoUsuario.email}).`,
     })
     if (!auditoria.ok) console.error("Erro ao registrar auditoria:", auditoria.error)
@@ -178,6 +191,7 @@ export async function actionAtualizarUsuario(
         modulo: "USUARIOS",
         acao: "ATUALIZADO",
         entidadeId: atualizado.id,
+        entidadeDescricao: `Usuário: ${atualizado.nome}`,
         descricao: `Usuário ${atualizado.nome} atualizado.`,
         camposAlterados,
       })
@@ -217,6 +231,7 @@ export async function actionInativarUsuario(id: string): Promise<ResultadoAction
       modulo: "USUARIOS",
       acao: "STATUS_ALTERADO",
       entidadeId: atualizado.id,
+      entidadeDescricao: `Usuário: ${atualizado.nome}`,
       descricao: `Usuário inativado: ${atualizado.nome}.`,
     })
     if (!auditoria.ok) console.error("Erro ao registrar auditoria:", auditoria.error)
@@ -253,6 +268,7 @@ export async function actionReativarUsuario(id: string): Promise<ResultadoAction
       modulo: "USUARIOS",
       acao: "STATUS_ALTERADO",
       entidadeId: atualizado.id,
+      entidadeDescricao: `Usuário: ${atualizado.nome}`,
       descricao: `Usuário reativado: ${atualizado.nome}.`,
     })
     if (!auditoria.ok) console.error("Erro ao registrar auditoria:", auditoria.error)
