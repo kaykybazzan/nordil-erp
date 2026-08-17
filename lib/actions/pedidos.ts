@@ -139,7 +139,10 @@ export async function actionCriarPedido(input: CriarPedidoInput) {
 
   const validated = CriarPedidoSchema.safeParse(input)
   if (!validated.success) {
-    return { ok: false, error: validated.error.issues[0].message }
+    const mensagens = validated.error.issues.map((i) => i.message)
+    const unica = [...new Set(mensagens)].join("; ")
+    console.error("Validação ao criar pedido:", validated.error.issues)
+    return { ok: false, error: unica || "Dados inválidos" }
   }
 
   const dados = validated.data
@@ -149,10 +152,11 @@ export async function actionCriarPedido(input: CriarPedidoInput) {
   try {
     // Etapa 1: Transação para gerar número e criar pedido
     const resultado = await prisma.$transaction(async (tx) => {
-      // Incrementa sequência de PEDIDO
-      const sequencia = await tx.sequenciaNumeracao.update({
+      // Incrementa sequência de PEDIDO (cria se ainda não existir para a empresa)
+      const sequencia = await tx.sequenciaNumeracao.upsert({
         where: { empresaId_tipo: { empresaId, tipo: "PEDIDO" } },
-        data: { valorAtual: { increment: 1 } },
+        create: { empresaId, tipo: "PEDIDO", valorAtual: 1 },
+        update: { valorAtual: { increment: 1 } },
       })
       const numero = sequencia.valorAtual
 
@@ -275,6 +279,38 @@ export async function actionCriarPedido(input: CriarPedidoInput) {
     return { ok: true, data: formatarPedido(pedidoCompleto!) }
   } catch (error) {
     console.error("Erro ao criar pedido:", error)
+
+    // Prisma known request errors
+    if (error && typeof error === "object" && "code" in error) {
+      const prismaError = error as { code: string; meta?: { target?: string | string[]; cause?: string; field_name?: string }; message?: string }
+
+      if (prismaError.code === "P2002") {
+        const target = Array.isArray(prismaError.meta?.target)
+          ? prismaError.meta.target.join(", ")
+          : prismaError.meta?.target ?? "campo único"
+        return { ok: false, error: `Já existe um registro com o mesmo valor em: ${target}` }
+      }
+
+      if (prismaError.code === "P2003") {
+        const field = prismaError.meta?.field_name ?? "referência"
+        return { ok: false, error: `Referência inválida (${field}). Verifique cliente, produto ou usuário.` }
+      }
+
+      if (prismaError.code === "P2025") {
+        return {
+          ok: false,
+          error:
+            "Registro necessário não encontrado (possível sequência de numeração PEDIDO ausente para a empresa).",
+        }
+      }
+    }
+
+    if (error instanceof Error && error.message) {
+      // Mensagem útil para debug, sem stack/SQL completos
+      const msg = error.message.split("\n")[0].slice(0, 240)
+      return { ok: false, error: `Erro ao criar pedido: ${msg}` }
+    }
+
     return { ok: false, error: "Erro ao criar pedido" }
   }
 }

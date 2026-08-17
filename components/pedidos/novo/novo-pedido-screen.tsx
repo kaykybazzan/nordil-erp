@@ -40,6 +40,7 @@ export function NovoPedidoScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | null>(null)
+  const submittingRef = useRef(false)
   const [clientes, setClientes] = useState<any[]>([])
   const [produtos, setProdutos] = useState<any[]>([])
   const [carregandoDados, setCarregandoDados] = useState(false)
@@ -127,7 +128,10 @@ export function NovoPedidoScreen() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (submittingRef.current) return
     if (!validate()) return
+
+    submittingRef.current = true
     setSubmitting(true)
 
     const endereco = clienteSelecionado && enderecos[enderecoIdx]
@@ -144,46 +148,49 @@ export function NovoPedidoScreen() {
 
     const itensValidos = itens.filter((i) => i.produtoId && parseFloat(i.quantidade) > 0)
 
-    const resultado = await criarPedido({
-      clienteId,
-      endereco,
-      observacao: observacao.trim() || undefined,
-      itens: itensValidos.map((i) => {
-        const produto = produtos.find((p) => p.id === i.produtoId)!
-        return {
-          produtoId: i.produtoId,
-          quantidade: parseFloat(i.quantidade),
-          precoUnitario: produto.precoVenda,
-          desconto: parseFloat(i.desconto) || 0,
-        }
-      }),
-    })
+    try {
+      const resultado = await criarPedido({
+        clienteId,
+        endereco,
+        observacao: observacao.trim() || undefined,
+        itens: itensValidos.map((i) => {
+          const produto = produtos.find((p) => p.id === i.produtoId)!
+          return {
+            produtoId: i.produtoId,
+            quantidade: parseFloat(i.quantidade),
+            precoUnitario: produto.precoVenda,
+            desconto: parseFloat(i.desconto) || 0,
+          }
+        }),
+      })
 
-    setSubmitting(false)
+      if (!resultado.ok) {
+        showToast(resultado.error || "Erro ao criar pedido")
+        return
+      }
 
-    if (!resultado.ok) {
-      showToast(resultado.error || "Erro ao criar pedido")
-      return
+      const pedido = resultado.data
+      if (!pedido) {
+        showToast("Erro ao criar pedido")
+        return
+      }
+
+      const itensSemEstoque = pedido.itens.filter((i) => i.status === "PENDENTE_ESTOQUE")
+
+      if (itensSemEstoque.length > 0) {
+        showToast(
+          pedido.status === "CRIADO"
+            ? "Pedido criado, mas sem estoque disponível para nenhum item."
+            : `Pedido criado. ${itensSemEstoque.length} ${itensSemEstoque.length === 1 ? "item" : "itens"} sem estoque suficiente.`,
+        )
+      } else {
+        showToast("Pedido criado com sucesso!")
+      }
+      setTimeout(() => router.push("/pedidos"), 1200)
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
     }
-
-    const pedido = resultado.data
-    if (!pedido) {
-      showToast("Erro ao criar pedido")
-      return
-    }
-
-    const itensSemEstoque = pedido.itens.filter((i) => i.status === "PENDENTE_ESTOQUE")
-
-    if (itensSemEstoque.length > 0) {
-      showToast(
-        pedido.status === "CRIADO"
-          ? "Pedido criado, mas sem estoque disponível para nenhum item."
-          : `Pedido criado. ${itensSemEstoque.length} ${itensSemEstoque.length === 1 ? "item" : "itens"} sem estoque suficiente.`,
-      )
-    } else {
-      showToast("Pedido criado com sucesso!")
-    }
-    setTimeout(() => router.push("/pedidos"), 1200)
   }
 
   return (
