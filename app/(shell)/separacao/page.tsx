@@ -78,13 +78,14 @@ export default function SeparacaoPage() {
       listarClientes(),
     ])
     const usuariosLista = usuariosResultado.ok && usuariosResultado.data ? usuariosResultado.data : []
+    const clientesLista = clientesResultado.ok && clientesResultado.data ? clientesResultado.data : []
     if (clientesResultado.ok && clientesResultado.data) {
       setClientes(clientesResultado.data)
     }
 
     if (resultado.ok && resultado.data) {
       const pedidosComDados = resultado.data.map((pedido) => {
-        const cliente = clientes.find((c) => c.id === pedido.clienteId)
+        const cliente = clientesLista.find((c) => c.id === pedido.clienteId)
         const separador = pedido.separadorId ? usuariosLista.find((u) => u.id === pedido.separadorId) : undefined
 
         return {
