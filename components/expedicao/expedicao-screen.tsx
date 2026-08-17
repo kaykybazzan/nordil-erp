@@ -25,6 +25,7 @@ export function ExpedicaoScreen() {
   const currentUser = useCurrentUser()
 
   const todosPedidos = usePedidosStore((s) => s.pedidos)
+  const carregarPedidos = usePedidosStore((s) => s.carregarPedidos)
   const expedirPedido = usePedidosStore((s) => s.expedirPedido)
   const marcarEntregue = usePedidosStore((s) => s.marcarEntregue)
 
@@ -41,14 +42,10 @@ export function ExpedicaoScreen() {
   }
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 700)
-    listarClientes().then((result) => {
-      if (result.ok && result.data) {
-        setClientes(result.data)
-      }
+    Promise.all([carregarPedidos(), listarClientes()]).then(() => {
+      setLoading(false)
     })
-    return () => clearTimeout(t)
-  }, [])
+  }, [carregarPedidos])
 
   const pedidos = todosPedidos.filter(
     (p) => p.status === "CONFERIDO" || p.status === "EXPEDIDO",
@@ -65,6 +62,7 @@ export function ExpedicaoScreen() {
       showToast(resultado.error || "Erro ao expedir pedido")
       return
     }
+    await carregarPedidos()
     showToast("Pedido expedido com sucesso.")
   }
 
@@ -74,6 +72,7 @@ export function ExpedicaoScreen() {
       showToast(resultado.error || "Erro ao marcar entregue")
       return
     }
+    await carregarPedidos()
     showToast("Entrega confirmada.")
   }
 

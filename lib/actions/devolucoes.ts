@@ -484,7 +484,17 @@ export async function actionListarDevolucoes(filtros?: {
       },
     })
 
-    return { ok: true, data: devolucoes }
+    // Converter Decimal para Number para evitar erro de serialização
+    const devolucoesConvertidas = devolucoes.map((d: any) => ({
+      ...d,
+      itens: d.itens.map((i: any) => ({
+        ...i,
+        quantidadeSolicitada: Number(i.quantidadeSolicitada),
+        quantidadeConfirmada: i.quantidadeConfirmada ? Number(i.quantidadeConfirmada) : null,
+      })),
+    }))
+
+    return { ok: true, data: devolucoesConvertidas }
   } catch (error) {
     console.error("Erro ao listar devoluções:", error)
     return { ok: false, error: "Erro ao listar devoluções." }

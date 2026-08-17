@@ -158,6 +158,8 @@ export default function SeparacaoPedidoPage({ params }: { params: Promise<{ id: 
     const valorStr = quantidades[itemPedidoId] || "0"
     const quantidadeInformada = parseFloat(valorStr)
 
+    console.log("Confirmando item:", itemPedidoId, quantidadeInformada)
+
     const produto = produtos.find((p) => p.id === produtoId)
     if (!produto) {
       setFormError("Produto não encontrado.")
@@ -166,6 +168,8 @@ export default function SeparacaoPedidoPage({ params }: { params: Promise<{ id: 
 
     const resultado = await separacaoStore.confirmarItem(id, itemPedidoId, quantidadeInformada, produto)
 
+    console.log("Resultado confirmarItem:", resultado)
+
     if (!resultado.sucesso) {
       setFormError(resultado.erro)
       return
@@ -173,6 +177,8 @@ export default function SeparacaoPedidoPage({ params }: { params: Promise<{ id: 
 
     setFormError(null)
     setQuantidades((prev) => ({ ...prev, [itemPedidoId]: quantidadeInformada.toString() }))
+
+    console.log("Draft após confirmar:", draft)
 
     // Move focus to next PENDENTE item
     const proximoPendente = draft.find((d) => d.statusLocal === "PENDENTE" && d.itemPedidoId !== itemPedidoId)
@@ -210,7 +216,7 @@ export default function SeparacaoPedidoPage({ params }: { params: Promise<{ id: 
       setPedido(resultado.data)
       // Inicializa draft local
       await separacaoStore.iniciarSeparacao(id, currentUser.id, currentUser.nome || currentUser.email, resultado.data)
-      
+
       // Inicializa quantidades
       const qtds: Record<string, string> = {}
       resultado.data.itens.forEach((item: ItemPedido) => {

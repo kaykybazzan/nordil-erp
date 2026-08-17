@@ -34,9 +34,14 @@ export const useSeparacaoStore = create<SeparacaoState>()(
       pedidoIdAtivo: null,
 
       iniciarSeparacao: async (pedidoId, usuarioId, nomeUsuario, pedido) => {
-        // Validação: pedido.status === "RESERVADO"
-        if (pedido.status !== "RESERVADO") {
+        // Validação: pedido.status deve ser "RESERVADO" ou "EM_SEPARACAO" (para reidratação)
+        if (pedido.status !== "RESERVADO" && pedido.status !== "EM_SEPARACAO") {
           return { sucesso: false, erro: "Pedido não está disponível para separação" }
+        }
+
+        // Se já está EM_SEPARACAO, verifica se é o mesmo usuário
+        if (pedido.status === "EM_SEPARACAO" && pedido.separadorId !== usuarioId) {
+          return { sucesso: false, erro: "Este pedido já está sendo separado por outro usuário" }
         }
 
         // Inicializa draft local: um item por ItemPedido

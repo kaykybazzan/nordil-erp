@@ -370,28 +370,29 @@ export function EstoqueScreen({
         </div>
       ) : (
         <>
-          {/* Tabela */}
-          <div className="overflow-x-auto border border-border rounded-lg">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted">
-                  <th className="px-4 py-3 text-left font-semibold text-foreground">
-                    Produto
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-foreground">
-                    SKU
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-foreground">
-                    Categoria
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-foreground w-20">
-                    Físico
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-foreground w-20">
-                    <Tooltip.Root>
+          {/* Tabela compacta */}
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted">
+                    <th className="px-2 py-1.5 text-left font-semibold text-foreground text-xs">
+                      Produto
+                    </th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-foreground text-xs">
+                      SKU
+                    </th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-foreground text-xs">
+                      Categoria
+                    </th>
+                    <th className="px-2 py-1.5 text-right font-semibold text-foreground text-xs w-16">
+                      Físico
+                    </th>
+                    <th className="px-2 py-1.5 text-right font-semibold text-foreground text-xs w-16">
+                      <Tooltip.Root>
                       <Tooltip.Trigger className="inline-flex items-center justify-end gap-1 cursor-help outline-none">
                         Reservado
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16">
                           <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1" />
                           <text x="8" y="10" textAnchor="middle" fontSize="10" fill="currentColor" className="font-bold">?</text>
                         </svg>
@@ -404,125 +405,126 @@ export function EstoqueScreen({
                         </Tooltip.Positioner>
                       </Tooltip.Portal>
                     </Tooltip.Root>
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-foreground w-20">
-                    Disponível
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-foreground w-20">
-                    Mínimo
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-foreground">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-foreground max-w-xs">
-                    Última movimentação
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold text-foreground w-12">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtrados.slice(0, visiveis).map((inv) => (
-                  <tr
-                    key={inv.produtoId}
-                    className="border-b border-border hover:bg-muted/50 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      {inv.produto.nome}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
-                      {inv.produto.skuInterno}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {inv.categoria}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-sm tabular-nums">
-                      {inv.estoqueFisico} {inv.produto.unidadeMedida}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-sm tabular-nums">
-                      {inv.reservado} {inv.produto.unidadeMedida}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-sm tabular-nums">
-                      {inv.disponivel} {inv.produto.unidadeMedida}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-sm tabular-nums">
-                      {inv.estoqueMinimo} {inv.produto.unidadeMedida}
-                    </td>
-                    <td className="px-4 py-3">
-                      <InventarioStatusBadge
-                        status={inv.status}
-                        tooltip={
-                          inv.status === "baixo"
-                            ? "Disponível está igual ou abaixo do mínimo definido."
-                            : inv.status === "zerado"
-                              ? "Produto sem estoque disponível."
-                              : "Estoque em nível normal."
-                        }
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
-                      {new Date(inv.ultimaMovimentacao).toLocaleString("pt-BR")}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Menu.Root>
-                        <Menu.Trigger
-                          className="inline-flex items-center justify-center p-1 rounded hover:bg-muted transition-colors"
-                          aria-label="Ações"
-                        >
-                          <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                        </Menu.Trigger>
-                        <Menu.Portal>
-                          <Menu.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
-                            <Menu.Popup
-                              className="bg-card border border-border rounded-lg shadow-lg p-1 w-48"
-                            >
-                              <Menu.Item
-                                onClick={() => handleViewProduto(inv)}
-                                className="px-3 py-2 text-sm rounded cursor-pointer hover:bg-muted flex items-center gap-2"
+                    </th>
+                    <th className="px-2 py-1.5 text-right font-semibold text-foreground text-xs w-16">
+                      Disponível
+                    </th>
+                    <th className="px-2 py-1.5 text-right font-semibold text-foreground text-xs w-16">
+                      Mínimo
+                    </th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-foreground text-xs w-16">
+                      Status
+                    </th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-foreground text-xs w-28">
+                      Última movimentação
+                    </th>
+                    <th className="px-2 py-1.5 text-center font-semibold text-foreground text-xs w-16">
+                      Ações
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtrados.slice(0, visiveis).map((inv) => (
+                    <tr
+                      key={inv.produtoId}
+                      className="border-b border-border hover:bg-muted/50 transition-colors"
+                    >
+                      <td className="px-2 py-2 font-medium text-foreground text-xs truncate">
+                        {inv.produto.nome}
+                      </td>
+                      <td className="px-2 py-2 text-muted-foreground font-mono text-xs">
+                        {inv.produto.skuInterno}
+                      </td>
+                      <td className="px-2 py-2 text-muted-foreground text-xs">
+                        {inv.categoria}
+                      </td>
+                      <td className="px-2 py-2 text-right font-mono text-xs tabular-nums">
+                        {inv.estoqueFisico} {inv.produto.unidadeMedida}
+                      </td>
+                      <td className="px-2 py-2 text-right font-mono text-xs tabular-nums">
+                        {inv.reservado} {inv.produto.unidadeMedida}
+                      </td>
+                      <td className="px-2 py-2 text-right font-mono text-xs tabular-nums">
+                        {inv.disponivel} {inv.produto.unidadeMedida}
+                      </td>
+                      <td className="px-2 py-2 text-right font-mono text-xs tabular-nums">
+                        {inv.estoqueMinimo} {inv.produto.unidadeMedida}
+                      </td>
+                      <td className="px-2 py-2">
+                        <InventarioStatusBadge
+                          status={inv.status}
+                          tooltip={
+                            inv.status === "baixo"
+                              ? "Disponível está igual ou abaixo do mínimo definido."
+                              : inv.status === "zerado"
+                                ? "Produto sem estoque disponível."
+                                : "Estoque em nível normal."
+                          }
+                        />
+                      </td>
+                      <td className="px-2 py-2 text-muted-foreground text-xs truncate">
+                        {new Date(inv.ultimaMovimentacao).toLocaleString("pt-BR")}
+                      </td>
+                      <td className="px-2 py-2 text-center">
+                        <Menu.Root>
+                          <Menu.Trigger
+                            className="inline-flex items-center justify-center p-1 rounded hover:bg-muted transition-colors"
+                            aria-label="Ações"
+                          >
+                            <MoreVertical className="w-3.5 h-3.5 text-muted-foreground" />
+                          </Menu.Trigger>
+                          <Menu.Portal>
+                            <Menu.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
+                              <Menu.Popup
+                                className="bg-card border border-border rounded-lg shadow-lg p-1 w-48"
                               >
-                                <Eye className="w-4 h-4" />
-                                Ver produto
-                              </Menu.Item>
-                              <Menu.Item
-                                onClick={() => handleHistorico(inv)}
-                                className="px-3 py-2 text-sm rounded cursor-pointer hover:bg-muted flex items-center gap-2"
-                              >
-                                <Clock className="w-4 h-4" />
-                                Abrir histórico
-                              </Menu.Item>
-                              <Menu.Item
-                                onClick={() => handleEntrada(inv)}
-                                className="px-3 py-2 text-sm rounded cursor-pointer hover:bg-muted flex items-center gap-2"
-                              >
-                                <ArrowRight className="w-4 h-4" />
-                                Ir para Entrada
-                              </Menu.Item>
-                              <Menu.Item
-                                onClick={() => handleInventario(inv)}
-                                className="px-3 py-2 text-sm rounded cursor-pointer hover:bg-muted flex items-center gap-2"
-                              >
-                                <Package className="w-4 h-4" />
-                                Ir para Inventário
-                              </Menu.Item>
-                              {isOperadorEstoque && (
                                 <Menu.Item
-                                  onClick={() => handleSugerirContagem(inv)}
-                                  className="px-3 py-2 text-sm rounded cursor-pointer hover:bg-muted flex items-center gap-2 text-primary"
+                                  onClick={() => handleViewProduto(inv)}
+                                  className="px-3 py-2 text-sm rounded cursor-pointer hover:bg-muted flex items-center gap-2"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  Ver produto
+                                </Menu.Item>
+                                <Menu.Item
+                                  onClick={() => handleHistorico(inv)}
+                                  className="px-3 py-2 text-sm rounded cursor-pointer hover:bg-muted flex items-center gap-2"
                                 >
                                   <Clock className="w-4 h-4" />
-                                  Sugerir contagem
+                                  Abrir histórico
                                 </Menu.Item>
-                              )}
-                            </Menu.Popup>
-                          </Menu.Positioner>
-                        </Menu.Portal>
-                      </Menu.Root>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                                <Menu.Item
+                                  onClick={() => handleEntrada(inv)}
+                                  className="px-3 py-2 text-sm rounded cursor-pointer hover:bg-muted flex items-center gap-2"
+                                >
+                                  <ArrowRight className="w-4 h-4" />
+                                  Ir para Entrada
+                                </Menu.Item>
+                                <Menu.Item
+                                  onClick={() => handleInventario(inv)}
+                                  className="px-3 py-2 text-sm rounded cursor-pointer hover:bg-muted flex items-center gap-2"
+                                >
+                                  <Package className="w-4 h-4" />
+                                  Ir para Inventário
+                                </Menu.Item>
+                                {isOperadorEstoque && (
+                                  <Menu.Item
+                                    onClick={() => handleSugerirContagem(inv)}
+                                    className="px-3 py-2 text-sm rounded cursor-pointer hover:bg-muted flex items-center gap-2 text-primary"
+                                  >
+                                    <Clock className="w-4 h-4" />
+                                    Sugerir contagem
+                                  </Menu.Item>
+                                )}
+                              </Menu.Popup>
+                            </Menu.Positioner>
+                          </Menu.Portal>
+                        </Menu.Root>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Carregar mais */}
