@@ -332,7 +332,7 @@ export default function SeparacaoPedidoPage({ params }: { params: Promise<{ id: 
           <div>
             <h1 className="text-lg font-semibold">Pedido #{pedido.numero}</h1>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span>Cliente: {cliente?.nome ?? pedido.clienteId}</span>
+              <span>Cliente: {cliente?.nome || "Cliente não encontrado"}</span>
               <span>Status: {pedido.status}</span>
               {podeSeparar && (
                 <span>Tempo em separação: {formatarTempoNaFila(pedido.statusAlteradoEm)}</span>
