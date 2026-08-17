@@ -89,7 +89,7 @@ export default function SeparacaoPage() {
 
         return {
           ...pedido,
-          clienteNome: cliente?.nome ?? pedido.clienteId,
+          clienteNome: cliente?.nome || "Cliente não encontrado",
           separadorNome: separador?.nome,
           itensTotal: pedido.itens.length,
           tempoNaFila: formatarTempoNaFila(pedido.statusAlteradoEm),
