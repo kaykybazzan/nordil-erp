@@ -1,4 +1,5 @@
-# Nordil ERP
+![Nordil](public/logo.png)
+
 
 ERP web para gestão de operações de distribuidoras de materiais elétricos.
 
@@ -44,31 +45,29 @@ O projeto também possui entrada de estoque, inventário, devoluções, auditori
 
 ## Telas
 
-As imagens abaixo devem mostrar o sistema funcionando. Os arquivos podem ficar em uma pasta `screenshots/` dentro do repositório.
-
 ### Dashboard
 
-![Dashboard](/screenshots/dashboard.png)
+![Dashboard](public/screenshots/dashboard.png)
 
 ### Separação de pedidos
 
-![Separação](/screenshots/separacao.png)
+![Separação](public/screenshots/separacao.png)
 
 ### Conferência
 
-![Conferência](/screenshots/conferencia.png)
+![Conferência](public/screenshots/conferencia.png)
 
 ### Inventário
 
-![Inventário](/screenshots/inventario.png)
+![Inventário](public/screenshots/inventario.png)
 
 ### Auditoria
 
-![Auditoria](/screenshots/auditoria.png)
+![Auditoria](public/screenshots/auditoria.png)
 
 ### Entrada de estoque
 
-![Entrada de estoque](/screenshots/entrada.png)
+![Entrada de estoque](public/screenshots/entrada.png)
 
 ---
 
@@ -85,13 +84,13 @@ As imagens abaixo devem mostrar o sistema funcionando. Os arquivos podem ficar e
 | Pedidos            | Criação e acompanhamento do pedido até a entrega         |
 | Estoque            | Movimentações, reservas e saldo disponível               |
 | Entrada de estoque | Entrada de produtos por nota fiscal                      |
-| Separação          | Fila de pedidos, locks e controle de ruptura             |
+| Separação          | Fila de pedidos, locks e controle de ruptura              |
 | Conferência        | Conferência dos itens e identificação de divergências    |
-| Expedição          | Saída de estoque e informações de transporte             |
-| Inventário         | Contagem, divergências e ajustes                         |
-| Devoluções         | Solicitação, confirmação e entrada no estoque            |
-| Auditoria          | Histórico de ações realizadas no sistema                 |
-| Configurações      | Dados da empresa e regras operacionais                   |
+| Expedição          | Saída de estoque e informações de transporte              |
+| Inventário         | Contagem, divergências e ajustes                          |
+| Devoluções         | Solicitação, confirmação e entrada no estoque              |
+| Auditoria          | Histórico de ações realizadas no sistema                  |
+| Configurações      | Dados da empresa e regras operacionais                    |
 
 Os módulos acima usam PostgreSQL como fonte de dados. Não há módulos utilizando `localStorage` ou mocks como fonte de funcionamento.
 
