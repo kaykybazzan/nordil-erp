@@ -151,10 +151,9 @@ export function EstoqueScreen({
   }, [router])
 
   const handleInventario = useCallback((inv: (typeof inventarios)[0]) => {
-    // Placeholder: navegaria para /estoque/inventario?produtoId=...
-    const placeholder = `/estoque/inventario?produtoId=${inv.produto.id}`
-    console.log("[v0] Inventário placeholder:", placeholder)
-  }, [])
+    // Navega para a tela de Inventário com o produto pré-selecionado.
+    router.push(`/estoque/inventario?produtoId=${inv.produto.id}`)
+  }, [router])
 
   const handleSugerirContagem = useCallback((inv: (typeof inventarios)[0]) => {
     setSugestaoProduto(inv)
