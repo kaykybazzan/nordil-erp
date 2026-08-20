@@ -43,7 +43,7 @@ A separação possui lock por operador. Na conferência, o conferente não receb
 
 O projeto também possui entrada de estoque, inventário, devoluções, auditoria, usuários, permissões e configurações.
 
-## Telas
+## Telas Principais
 
 ### Dashboard
 
