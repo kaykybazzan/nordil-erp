@@ -48,39 +48,27 @@ As imagens abaixo devem mostrar o sistema funcionando. Os arquivos podem ficar e
 
 ### Dashboard
 
-<!-- screenshot: screenshots/dashboard.png -->
-
-Visão geral das operações, com indicadores de pedidos, estoque e outros dados do sistema.
+![Dashboard](/screenshots/dashboard.png)
 
 ### Separação de pedidos
 
-<!-- screenshot: screenshots/separacao.png -->
-
-Tela usada para separar um pedido. Mostra a operação com controle do operador e validações de quantidade.
+![Separação](/screenshots/separacao.png)
 
 ### Conferência
 
-<!-- screenshot: screenshots/conferencia.png -->
-
-Tela de conferência dos itens separados, incluindo identificação de divergências.
+![Conferência](/screenshots/conferencia.png)
 
 ### Inventário
 
-<!-- screenshot: screenshots/inventario.png -->
-
-Abertura e acompanhamento de inventários, com definição de escopo, contagem e ajustes.
+![Inventário](/screenshots/inventario.png)
 
 ### Auditoria
 
-<!-- screenshot: screenshots/auditoria.png -->
-
-Registro das ações realizadas no sistema, incluindo alterações e informações da entidade afetada.
+![Auditoria](/screenshots/auditoria.png)
 
 ### Entrada de estoque
 
-<!-- screenshot: screenshots/entrada-estoque.png -->
-
-Registro de entrada de mercadorias por nota fiscal e atualização do estoque.
+![Entrada de estoque](/screenshots/entrada.png)
 
 ---
 
